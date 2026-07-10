@@ -5207,3 +5207,100 @@ button {
     padding: 0 10px;
   }
 }
+
+/* =========================================================
+   DESCANSO INTELIGENTE + EJERCICIOS DE BRAZOS
+   Agregar al final de src/index.css
+   ========================================================= */
+
+.mobile-training-equipment {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 7px;
+  padding: 5px 9px;
+  border: 1px solid rgba(249, 115, 22, 0.36);
+  border-radius: 999px;
+  color: #fdba74;
+  background: rgba(249, 115, 22, 0.1);
+  font-size: 0.55rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mobile-training-next-exercise {
+  display: grid;
+  margin: 12px 0 14px;
+  padding: 13px 15px;
+  border: 1px solid rgba(251, 191, 36, 0.24);
+  border-radius: 14px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(251, 191, 36, 0.1),
+      rgba(249, 115, 22, 0.05)
+    ),
+    rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+.mobile-training-next-exercise > span {
+  color: #fbbf24;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.mobile-training-next-exercise > strong {
+  margin-top: 4px;
+  color: #fff;
+  font-family: "Marcellus SC", serif;
+  font-size: clamp(1.22rem, 6vw, 1.75rem);
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.mobile-training-next-exercise > b {
+  margin-top: 5px;
+  color: #fdba74;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mobile-training-next-exercise > small {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .battle-page--distance-mode
+    .mobile-training-current--active:has(.mobile-training-next-exercise) {
+    padding-top: 15px;
+  }
+
+  .battle-page--distance-mode
+    .mobile-training-current:has(.mobile-training-next-exercise)
+    .mobile-training-current__counter > strong {
+    font-size: clamp(3.3rem, 17vw, 5.2rem);
+  }
+
+  .battle-page--distance-mode
+    .mobile-training-current:has(.mobile-training-next-exercise)
+    .mobile-training-current__cue {
+    margin-top: 11px;
+  }
+}
+
+@media (max-height: 720px) and (max-width: 760px) {
+  .mobile-training-next-exercise {
+    margin: 8px 0 10px;
+    padding: 9px 12px;
+  }
+
+  .mobile-training-next-exercise > strong {
+    font-size: 1.15rem;
+  }
+}

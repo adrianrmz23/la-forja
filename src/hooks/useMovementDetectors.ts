@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { NormalizedLandmark } from "@mediapipe/tasks-vision";
-import type { RoutineExercise } from "../types/routine";
-import type {
-  BoxingPunch,
-  BoxingStance,
-} from "../utils/boxingDetection.ts";
+import type { RoutineExercise } from "../types/routine.ts";
+import type { BoxingPunch, BoxingStance } from "../utils/boxingDetection.ts";
 import { formatSide, type BodySide } from "../utils/poseGeometry.ts";
 import {
   useSquatDetector,
@@ -18,6 +15,7 @@ import { useJabDetector } from "./useJabDetector.ts";
 import { useCrossDetector } from "./useCrossDetector.ts";
 import { useHooksDetector } from "./useHooksDetector.ts";
 import { useBoxingCombinationDetector } from "./useBoxingCombinationDetector.ts";
+import { useArmExerciseDetector } from "./useArmExerciseDetector.ts";
 
 export type DetectedMovementKind = "repetition" | "combination";
 
@@ -194,6 +192,36 @@ export function useMovementDetectors({
     [emitMovement],
   );
 
+  const handleBicepsCurlValid = useCallback(() => {
+    emitMovement({
+      kind: "repetition",
+      detector: "biceps-curl",
+      label: "Curl válido",
+      message: "Flexión completa y regreso controlado registrados.",
+      damage: 2,
+    });
+  }, [emitMovement]);
+
+  const handleShoulderPressValid = useCallback(() => {
+    emitMovement({
+      kind: "repetition",
+      detector: "shoulder-press",
+      label: "Press válido",
+      message: "Extensión sobre la cabeza y regreso a hombros registrados.",
+      damage: 2,
+    });
+  }, [emitMovement]);
+
+  const handleLateralRaiseValid = useCallback(() => {
+    emitMovement({
+      kind: "repetition",
+      detector: "lateral-raise",
+      label: "Elevación válida",
+      message: "Ambos brazos alcanzaron la altura de los hombros y regresaron con control.",
+      damage: 2,
+    });
+  }, [emitMovement]);
+
   const {
     processLandmarks: processSquatLandmarks,
     reset: resetSquatDetector,
@@ -255,6 +283,24 @@ export function useMovementDetectors({
     onValidCombination: handleCombinationValid,
   });
 
+  const bicepsCurl = useArmExerciseDetector({
+    enabled: enabled && detector === "biceps-curl",
+    exercise: "biceps-curl",
+    onValidRepetition: handleBicepsCurlValid,
+  });
+
+  const shoulderPress = useArmExerciseDetector({
+    enabled: enabled && detector === "shoulder-press",
+    exercise: "shoulder-press",
+    onValidRepetition: handleShoulderPressValid,
+  });
+
+  const lateralRaise = useArmExerciseDetector({
+    enabled: enabled && detector === "lateral-raise",
+    exercise: "lateral-raise",
+    onValidRepetition: handleLateralRaiseValid,
+  });
+
   const processLandmarks = useCallback(
     (landmarks: NormalizedLandmark[] | null) => {
       if (!landmarks) {
@@ -269,17 +315,23 @@ export function useMovementDetectors({
       cross.processLandmarks(landmarks);
       hooks.processLandmarks(landmarks);
       combination.processLandmarks(landmarks);
+      bicepsCurl.processLandmarks(landmarks);
+      shoulderPress.processLandmarks(landmarks);
+      lateralRaise.processLandmarks(landmarks);
     },
     [
-  combination,
-  cross,
-  highKnees,
-  hooks,
-  jab,
-  lunge,
-  march,
-  processSquatLandmarks,
-],
+      bicepsCurl,
+      combination,
+      cross,
+      highKnees,
+      hooks,
+      jab,
+      lateralRaise,
+      lunge,
+      march,
+      processSquatLandmarks,
+      shoulderPress,
+    ],
   );
 
   const reset = useCallback(() => {
@@ -291,16 +343,22 @@ export function useMovementDetectors({
     cross.reset();
     hooks.reset();
     combination.reset();
+    bicepsCurl.reset();
+    shoulderPress.reset();
+    lateralRaise.reset();
   }, [
-  combination,
-  cross,
-  highKnees,
-  hooks,
-  jab,
-  lunge,
-  march,
-  resetSquatDetector,
-]);
+    bicepsCurl,
+    combination,
+    cross,
+    highKnees,
+    hooks,
+    jab,
+    lateralRaise,
+    lunge,
+    march,
+    resetSquatDetector,
+    shoulderPress,
+  ]);
 
   const squatMovementActive =
     detector === "squat" &&
@@ -325,7 +383,13 @@ export function useMovementDetectors({
                   ? hooks.isMovementActive
                   : detector === "boxing-combination"
                     ? combination.isMovementActive
-                    : false;
+                    : detector === "biceps-curl"
+                      ? bicepsCurl.isMovementActive
+                      : detector === "shoulder-press"
+                        ? shoulderPress.isMovementActive
+                        : detector === "lateral-raise"
+                          ? lateralRaise.isMovementActive
+                          : false;
 
   const technique = useMemo<DetectorTechniqueState>(() => {
     if (detector === "squat") {
@@ -427,6 +491,42 @@ export function useMovementDetectors({
       };
     }
 
+    if (detector === "biceps-curl") {
+      return {
+        phase: bicepsCurl.phase,
+        phaseLabel: bicepsCurl.phaseLabel,
+        instruction: bicepsCurl.instruction,
+        primaryLabel: "Codos",
+        primaryValue: `${bicepsCurl.leftElbowAngle ?? "--"}° / ${bicepsCurl.rightElbowAngle ?? "--"}°`,
+        secondaryLabel: "Equipo",
+        secondaryValue: "Mancuernas opcionales",
+      };
+    }
+
+    if (detector === "shoulder-press") {
+      return {
+        phase: shoulderPress.phase,
+        phaseLabel: shoulderPress.phaseLabel,
+        instruction: shoulderPress.instruction,
+        primaryLabel: "Codos",
+        primaryValue: `${shoulderPress.leftElbowAngle ?? "--"}° / ${shoulderPress.rightElbowAngle ?? "--"}°`,
+        secondaryLabel: "Equipo",
+        secondaryValue: "Mancuernas opcionales",
+      };
+    }
+
+    if (detector === "lateral-raise") {
+      return {
+        phase: lateralRaise.phase,
+        phaseLabel: lateralRaise.phaseLabel,
+        instruction: lateralRaise.instruction,
+        primaryLabel: "Hombros",
+        primaryValue: `${lateralRaise.leftShoulderAngle ?? "--"}° / ${lateralRaise.rightShoulderAngle ?? "--"}°`,
+        secondaryLabel: "Equipo",
+        secondaryValue: "Mancuernas opcionales",
+      };
+    }
+
     return {
       phase: "waiting",
       phaseLabel: "Esperando ejercicio",
@@ -437,6 +537,11 @@ export function useMovementDetectors({
       secondaryValue: "Inactivo",
     };
   }, [
+    bicepsCurl.instruction,
+    bicepsCurl.leftElbowAngle,
+    bicepsCurl.phase,
+    bicepsCurl.phaseLabel,
+    bicepsCurl.rightElbowAngle,
     combination.expectedPunch,
     combination.instruction,
     combination.phase,
@@ -467,6 +572,11 @@ export function useMovementDetectors({
     jab.phase,
     jab.phaseLabel,
     kneeAngle,
+    lateralRaise.instruction,
+    lateralRaise.leftShoulderAngle,
+    lateralRaise.phase,
+    lateralRaise.phaseLabel,
+    lateralRaise.rightShoulderAngle,
     lunge.activeSide,
     lunge.instruction,
     lunge.leftKneeAngle,
@@ -479,6 +589,11 @@ export function useMovementDetectors({
     march.phase,
     march.phaseLabel,
     march.rightHipAngle,
+    shoulderPress.instruction,
+    shoulderPress.leftElbowAngle,
+    shoulderPress.phase,
+    shoulderPress.phaseLabel,
+    shoulderPress.rightElbowAngle,
     squatInstruction,
     squatPhase,
     squatPhaseLabel,

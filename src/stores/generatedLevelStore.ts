@@ -11,6 +11,8 @@ import type {
   ProceduralDifficulty,
 } from "../types/generatedLevel.ts";
 
+const MINIMUM_ROUTINE_CALORIES = 250;
+
 /*
  * Se conserva esta estructura para que BattlePage pueda seguir
  * enviando el rendimiento del usuario sin necesitar cambios.
@@ -83,7 +85,10 @@ function createProceduralLevel(
   return generateProceduralLevel({
     levelNumber,
     difficulty: options.difficulty,
-    minimumCalories: options.minimumCalories,
+    minimumCalories: Math.max(
+      MINIMUM_ROUTINE_CALORIES,
+      options.minimumCalories,
+    ),
     preferredTheme: options.preferredTheme,
     seed: options.seed,
     recentExerciseIds: collectRecentExerciseIds(

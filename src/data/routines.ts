@@ -5,9 +5,9 @@ export const ashAssaultRoutine: WorkoutRoutine = {
   name: "Asalto de las Cenizas",
   description:
     "Rutina de cuerpo completo con fuerza, cardio y shadowboxing. Cada etapa avanza únicamente mediante movimientos válidos detectados por la cámara.",
-  minimumCalories: 180,
-  plannedCalories: 210,
-  estimatedMinutes: 38,
+  minimumCalories: 250,
+  plannedCalories: 275,
+  estimatedMinutes: 50,
   blocks: [
     {
       id: "warmup",
@@ -70,7 +70,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
           instructions:
             "Lleva la cadera hacia atrás, desciende con control y vuelve completamente a la posición inicial.",
           mode: "repetitions",
-          target: 15,
+          target: 18,
           countUnit: "repetition",
           restSeconds: 15,
           met: 6,
@@ -84,7 +84,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
           instructions:
             "Lleva una pierna hacia atrás, baja con control y regresa al centro antes de alternar con la otra pierna.",
           mode: "repetitions",
-          target: 16,
+          target: 18,
           countUnit: "repetition",
           restSeconds: 15,
           met: 6,
@@ -98,12 +98,64 @@ export const ashAssaultRoutine: WorkoutRoutine = {
           instructions:
             "Eleva las rodillas de manera alternada. Mantén el abdomen firme y un ritmo constante.",
           mode: "repetitions",
-          target: 40,
+          target: 50,
           countUnit: "step",
           restSeconds: 40,
           met: 8,
           detector: "high-knees",
           estimatedSecondsPerRep: 0.8,
+        },
+      ],
+    },
+    {
+      id: "upper-body",
+      name: "Arsenal del Forjador",
+      rounds: 3,
+      exercises: [
+        {
+          id: "arms-biceps-curl",
+          exerciseId: "biceps-curl",
+          name: "Curl de bíceps",
+          instructions:
+            "Mantén los codos cerca del torso, flexiona ambos brazos y vuelve a extenderlos con control. Puedes hacerlo sin peso o con mancuernas ligeras.",
+          mode: "repetitions",
+          target: 14,
+          countUnit: "repetition",
+          restSeconds: 15,
+          met: 4.5,
+          detector: "biceps-curl",
+          estimatedSecondsPerRep: 3,
+          equipment: "optional-dumbbells",
+        },
+        {
+          id: "arms-shoulder-press",
+          exerciseId: "shoulder-press",
+          name: "Press de hombros",
+          instructions:
+            "Comienza con las manos a la altura de los hombros, empuja hacia arriba y regresa lentamente. Las mancuernas son opcionales.",
+          mode: "repetitions",
+          target: 12,
+          countUnit: "repetition",
+          restSeconds: 18,
+          met: 5.5,
+          detector: "shoulder-press",
+          estimatedSecondsPerRep: 3,
+          equipment: "optional-dumbbells",
+        },
+        {
+          id: "arms-lateral-raise",
+          exerciseId: "lateral-raise",
+          name: "Elevaciones laterales",
+          instructions:
+            "Eleva ambos brazos hacia los lados hasta la altura de los hombros y bájalos lentamente. Empieza sin peso o con mancuernas muy ligeras.",
+          mode: "repetitions",
+          target: 12,
+          countUnit: "repetition",
+          restSeconds: 35,
+          met: 4.8,
+          detector: "lateral-raise",
+          estimatedSecondsPerRep: 3.2,
+          equipment: "optional-dumbbells",
         },
       ],
     },
@@ -119,7 +171,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
           instructions:
             "Extiende completamente el brazo delantero y vuelve rápidamente a la posición de guardia.",
           mode: "repetitions",
-          target: 24,
+          target: 28,
           countUnit: "punch",
           restSeconds: 15,
           met: 7,
@@ -133,7 +185,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
           instructions:
             "Extiende el brazo posterior, acompaña el golpe con una ligera rotación del torso y regresa a guardia.",
           mode: "repetitions",
-          target: 24,
+          target: 28,
           countUnit: "punch",
           restSeconds: 15,
           met: 7.5,
@@ -147,7 +199,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
           instructions:
             "Ejecuta primero un jab y después un cross. La combinación contará únicamente cuando completes ambos golpes en orden.",
           mode: "combinations",
-          target: 16,
+          target: 18,
           countUnit: "combination",
           restSeconds: 15,
           met: 8.5,
@@ -161,7 +213,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
           instructions:
             "Alterna ganchos de izquierda y derecha. Mantén el codo flexionado y acompaña cada golpe con el torso.",
           mode: "repetitions",
-          target: 20,
+          target: 24,
           countUnit: "punch",
           restSeconds: 15,
           met: 8,
@@ -175,7 +227,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
           instructions:
             "Completa la secuencia jab, cross y gancho antes de regresar completamente a guardia.",
           mode: "combinations",
-          target: 12,
+          target: 14,
           countUnit: "combination",
           restSeconds: 45,
           met: 9,
@@ -241,7 +293,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         instructions:
           "Eleva las rodillas de forma alternada y mantén un ritmo firme.",
         mode: "repetitions",
-        target: 40,
+        target: 50,
         countUnit: "step",
         restSeconds: 15,
         met: 8.2,
@@ -255,12 +307,27 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         instructions:
           "Completa cada sentadilla con profundidad controlada y regreso total de pie.",
         mode: "repetitions",
-        target: 15,
+        target: 18,
         countUnit: "repetition",
         restSeconds: 15,
         met: 6.5,
         detector: "squat",
         estimatedSecondsPerRep: 3,
+      },
+      {
+        id: "overload-shoulder-press",
+        exerciseId: "shoulder-press",
+        name: "Press de hombros de sobrecarga",
+        instructions:
+          "Empuja ambos brazos por encima de la cabeza y regresa con control. Las mancuernas son opcionales.",
+        mode: "repetitions",
+        target: 12,
+        countUnit: "repetition",
+        restSeconds: 15,
+        met: 5.8,
+        detector: "shoulder-press",
+        estimatedSecondsPerRep: 3,
+        equipment: "optional-dumbbells",
       },
       {
         id: "overload-jab-cross",
@@ -269,7 +336,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         instructions:
           "Completa cada jab–cross en orden y regresa a guardia.",
         mode: "combinations",
-        target: 16,
+        target: 18,
         countUnit: "combination",
         restSeconds: 15,
         met: 9,
@@ -283,7 +350,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         instructions:
           "Alterna ganchos de izquierda y derecha con el codo flexionado.",
         mode: "repetitions",
-        target: 20,
+        target: 24,
         countUnit: "punch",
         restSeconds: 0,
         met: 8.5,

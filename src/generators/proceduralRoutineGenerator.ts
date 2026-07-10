@@ -21,6 +21,8 @@ import {
   type SeededRandom,
 } from "../utils/seededRandom.ts";
 
+const MINIMUM_ROUTINE_CALORIES = 250;
+
 const THEME_ROTATION: LevelTheme[] = [
   "balanced",
   "strength",
@@ -156,6 +158,7 @@ function createRoutineExercise(
     met: entry.met,
     detector: entry.detector,
     estimatedSecondsPerRep: entry.estimatedSecondsPerRep,
+    equipment: entry.equipment,
   };
 }
 
@@ -252,7 +255,7 @@ function buildOverload(
     "high-knees",
     "squat",
     random.chance(0.5) ? "jab-cross" : "jab-cross-hook",
-    "hooks",
+    random.pick(["biceps-curl", "shoulder-press", "lateral-raise"]),
   ];
 
   const entries = preferredKeys.map((key) => {
@@ -291,8 +294,10 @@ function buildOverload(
 }
 
 function validateRoutine(routine: WorkoutRoutine): void {
-  if (routine.minimumCalories < 180) {
-    throw new Error("Una rutina generada no puede tener una meta menor a 180 kcal.");
+  if (routine.minimumCalories < MINIMUM_ROUTINE_CALORIES) {
+    throw new Error(
+      `Una rutina generada no puede tener una meta menor a ${MINIMUM_ROUTINE_CALORIES} kcal.`,
+    );
   }
 
   if (routine.blocks.length < 3) {
@@ -336,7 +341,10 @@ export function generateProceduralLevel(
   options: GenerateProceduralLevelOptions,
 ): GeneratedLevel {
   const levelNumber = Math.max(1, Math.floor(options.levelNumber));
-  const minimumCalories = Math.max(180, Math.round(options.minimumCalories));
+  const minimumCalories = Math.max(
+    MINIMUM_ROUTINE_CALORIES,
+    Math.round(options.minimumCalories),
+  );
   const theme =
     options.preferredTheme ??
     THEME_ROTATION[(levelNumber - 1) % THEME_ROTATION.length];
@@ -372,7 +380,15 @@ export function generateProceduralLevel(
   );
 
   const bossCandidates = getExercisesForStage("boss").filter((entry) =>
-    ["jab-cross", "jab-cross-hook", "hooks", "squat", "reverse-lunge"].includes(
+    [
+      "jab-cross",
+      "jab-cross-hook",
+      "hooks",
+      "squat",
+      "reverse-lunge",
+      "biceps-curl",
+      "shoulder-press",
+    ].includes(
       entry.key,
     ),
   );
@@ -440,8 +456,8 @@ export function generateProceduralLevel(
       "Nivel procedural creado con ejercicios aprobados, objetivos por repeticiones y sobrecarga automática.",
     minimumCalories,
     plannedCalories: Math.max(
-      minimumCalories + 20,
-      Math.round(minimumCalories * 1.15),
+      minimumCalories + 25,
+      Math.round(minimumCalories * 1.12),
     ),
     estimatedMinutes: estimateRoutineMinutes(blocks),
     blocks,

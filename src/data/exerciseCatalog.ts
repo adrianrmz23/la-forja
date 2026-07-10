@@ -34,6 +34,7 @@ export interface ExerciseCatalogEntry {
   met: number;
   estimatedSecondsPerRep: number;
   baseRestSeconds: number;
+  equipment?: "none" | "optional-dumbbells";
 
   themes: LevelTheme[];
   stages: RoutineExerciseStage[];
@@ -120,6 +121,69 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
       beginner: { minimum: 8, maximum: 12, step: 2 },
       intermediate: { minimum: 12, maximum: 18, step: 2 },
       advanced: { minimum: 16, maximum: 24, step: 2 },
+    },
+  },
+  {
+    key: "biceps-curl",
+    exerciseId: "biceps-curl",
+    name: "Curl de bíceps",
+    instructions:
+      "Mantén los codos cerca del torso, flexiona ambos brazos y vuelve a extenderlos con control. Puedes usar mancuernas ligeras o hacerlo sin peso.",
+    mode: "repetitions",
+    countUnit: "repetition",
+    detector: "biceps-curl",
+    met: 4.5,
+    estimatedSecondsPerRep: 3,
+    baseRestSeconds: 18,
+    equipment: "optional-dumbbells",
+    themes: ["balanced", "strength"],
+    stages: ["main", "boss", "overload"],
+    targets: {
+      beginner: { minimum: 8, maximum: 12, step: 2 },
+      intermediate: { minimum: 10, maximum: 16, step: 2 },
+      advanced: { minimum: 14, maximum: 20, step: 2 },
+    },
+  },
+  {
+    key: "shoulder-press",
+    exerciseId: "shoulder-press",
+    name: "Press de hombros",
+    instructions:
+      "Comienza con las manos a la altura de los hombros, empuja hacia arriba y regresa lentamente. Las mancuernas son opcionales.",
+    mode: "repetitions",
+    countUnit: "repetition",
+    detector: "shoulder-press",
+    met: 5.5,
+    estimatedSecondsPerRep: 3,
+    baseRestSeconds: 20,
+    equipment: "optional-dumbbells",
+    themes: ["balanced", "strength"],
+    stages: ["main", "boss", "overload"],
+    targets: {
+      beginner: { minimum: 6, maximum: 10, step: 2 },
+      intermediate: { minimum: 8, maximum: 14, step: 2 },
+      advanced: { minimum: 12, maximum: 18, step: 2 },
+    },
+  },
+  {
+    key: "lateral-raise",
+    exerciseId: "lateral-raise",
+    name: "Elevaciones laterales",
+    instructions:
+      "Eleva ambos brazos hacia los lados hasta la altura de los hombros y bájalos con control. Empieza sin peso o con mancuernas muy ligeras.",
+    mode: "repetitions",
+    countUnit: "repetition",
+    detector: "lateral-raise",
+    met: 4.8,
+    estimatedSecondsPerRep: 3.2,
+    baseRestSeconds: 20,
+    equipment: "optional-dumbbells",
+    themes: ["balanced", "strength"],
+    stages: ["main", "overload"],
+    targets: {
+      beginner: { minimum: 6, maximum: 10, step: 2 },
+      intermediate: { minimum: 8, maximum: 14, step: 2 },
+      advanced: { minimum: 10, maximum: 16, step: 2 },
     },
   },
   {

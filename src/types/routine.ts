@@ -14,7 +14,10 @@ export type ExerciseDetector =
   | "jab"
   | "cross"
   | "hooks"
-  | "boxing-combination";
+  | "boxing-combination"
+  | "biceps-curl"
+  | "shoulder-press"
+  | "lateral-raise";
 
 export type ExerciseId =
   | "active-march"
@@ -28,13 +31,20 @@ export type ExerciseId =
   | "jab-cross"
   | "hooks"
   | "boxing-combination"
-  | "free-shadowboxing";
+  | "free-shadowboxing"
+  | "biceps-curl"
+  | "shoulder-press"
+  | "lateral-raise";
 
 export type ExerciseCountUnit =
   | "repetition"
   | "step"
   | "punch"
   | "combination";
+
+export type ExerciseEquipment =
+  | "none"
+  | "optional-dumbbells";
 
 export interface RoutineExercise {
   id: string;
@@ -48,6 +58,13 @@ export interface RoutineExercise {
   met: number;
   detector: ExerciseDetector;
   estimatedSecondsPerRep?: number;
+
+  /**
+   * La cámara valida el movimiento corporal, no la presencia del equipo.
+   * Los ejercicios con este valor pueden realizarse sin peso o con
+   * mancuernas ligeras elegidas por el usuario.
+   */
+  equipment?: ExerciseEquipment;
 }
 
 export interface RoutineBlock {
@@ -61,14 +78,8 @@ export interface RoutineOverloadConfig {
   id: string;
   name: string;
   description: string;
-
-  /* Descanso antes de la primera ronda adicional. */
   entryRestSeconds: number;
-
-  /* Descanso entre una ronda adicional y la siguiente. */
   betweenRoundsRestSeconds: number;
-
-  /* Cada ronda usa estos ejercicios, todos validados por cámara. */
   exercises: RoutineExercise[];
 }
 

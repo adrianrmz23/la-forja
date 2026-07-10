@@ -44,6 +44,7 @@ import {
   useRoutineEngine,
   type ExerciseRoutineStep,
 } from "../hooks/useRoutineEngine.ts";
+import type { RoutineExercise } from "../types/routine.ts";
 
 import { formatWorkoutTime } from "../utils/calories.ts";
 import {
@@ -52,6 +53,7 @@ import {
 } from "../utils/routineResolver.ts";
 
 const MAX_ENEMY_HEALTH = 100;
+const MINIMUM_ROUTINE_CALORIES = 250;
 
 const POSITIONING_SECONDS = 10;
 const READY_HOLD_MS = 2000;
@@ -82,6 +84,9 @@ const DISTANCE_CUES: Record<string, string> = {
   cross: "GIRA Y REGRESA A GUARDIA",
   hooks: "GIRA EL TORSO Y PROTEGE EL ROSTRO",
   "boxing-combination": "COMPLETA LA COMBINACIÓN",
+  "biceps-curl": "FLEXIONA Y BAJA CON CONTROL",
+  "shoulder-press": "EMPUJA ARRIBA Y REGRESA",
+  "lateral-raise": "ELEVA HASTA LOS HOMBROS",
 };
 
 interface BattleFeedback {
@@ -103,6 +108,24 @@ const initialFeedback: BattleFeedback = {
   tone: "neutral",
 };
 
+function formatExerciseGoal(
+  exercise: RoutineExercise | null,
+): string {
+  if (!exercise) {
+    return "";
+  }
+
+  const unitLabels = {
+    repetition: exercise.target === 1 ? "repetición" : "repeticiones",
+    step: exercise.target === 1 ? "paso" : "pasos",
+    punch: exercise.target === 1 ? "golpe" : "golpes",
+    combination:
+      exercise.target === 1 ? "combinación" : "combinaciones",
+  } as const;
+
+  return `${exercise.target} ${unitLabels[exercise.countUnit]}`;
+}
+
 function BattlePage() {
   const { levelId: routeLevelId } = useParams<{
     levelId: string;
@@ -114,6 +137,8 @@ function BattlePage() {
   const lastAnnouncedStepRef = useRef<string | null>(null);
   const lastMilestoneRef = useRef<string | null>(null);
   const lastInvalidVoiceAtRef = useRef(0);
+  const playerReadyRef = useRef(false);
+  const lastRestReturnAnnouncementRef = useRef<string | null>(null);
 
   const [audioEnabled, setAudioEnabled] = useState(true);
 
@@ -279,6 +304,11 @@ function BattlePage() {
     speakMessage("Indicaciones por voz activadas.", true, true);
   }, [audioEnabled, speakMessage, unlockAudio]);
 
+  const canCompleteRest = useCallback(
+    () => playerReadyRef.current,
+    [],
+  );
+
   const completeMission = usePlayerStore((state) => state.completeMission);
 
   const profile = useProfileStore((state) => state.profile);
@@ -363,6 +393,8 @@ function BattlePage() {
     isAwaitingCalorieCheck,
     isOverload,
     overloadRound,
+    isRestWaitingForReady,
+    restReadyCountdown,
 
     registerRepetition: registerRoutineRepetition,
 
@@ -375,6 +407,8 @@ function BattlePage() {
     routine,
 
     isRunning: sessionStatus === "active",
+    canCompleteRest,
+    restReadyCountdownSeconds: 3,
 
     onStepComplete: handleRoutineStepComplete,
 
@@ -441,8 +475,13 @@ function BattlePage() {
   const playerReady =
     cameraStatus === "active" && modelStatus === "ready" && bodyVisible;
 
+  useEffect(() => {
+    playerReadyRef.current = playerReady;
+  }, [playerReady]);
+
   const calorieGoal = Math.max(
-    profile.minimumCalorieGoal || 180,
+    MINIMUM_ROUTINE_CALORIES,
+    profile.minimumCalorieGoal || MINIMUM_ROUTINE_CALORIES,
     routine.minimumCalories,
   );
 
@@ -496,7 +535,15 @@ function BattlePage() {
     }
 
     if (currentStep?.kind === "rest") {
-      return `${currentValue} / ${currentTarget} segundos`;
+      if (restReadyCountdown !== null) {
+        return `Comienza en ${restReadyCountdown}`;
+      }
+
+      if (isRestWaitingForReady && !playerReady) {
+        return "Esperando cuerpo completo";
+      }
+
+      return `${Math.max(remainingSeconds ?? 0, 0)} segundos restantes`;
     }
 
     if (currentExercise?.mode === "active_duration") {
@@ -532,6 +579,14 @@ function BattlePage() {
     sessionStatus !== "finished" &&
     !battleWon;
 
+  const isRestStep = currentStep?.kind === "rest";
+  const isRestReturnWindow =
+    isRestStep &&
+    ((remainingSeconds ?? 0) <= 5 || isRestWaitingForReady);
+  const nextExerciseGoal = formatExerciseGoal(nextExercise);
+  const currentExerciseUsesOptionalDumbbells =
+    currentExercise?.equipment === "optional-dumbbells";
+
   const mobileStageTitle = (() => {
     if (sessionStatus === "paused") {
       return "Rutina pausada";
@@ -550,6 +605,14 @@ function BattlePage() {
     }
 
     if (currentStep?.kind === "rest") {
+      if (restReadyCountdown !== null) {
+        return "Prepárate";
+      }
+
+      if (isRestWaitingForReady && !playerReady) {
+        return "Vuelve a tu posición";
+      }
+
       return "Descanso";
     }
 
@@ -573,6 +636,20 @@ function BattlePage() {
       return "Progreso conservado";
     }
 
+    if (currentStep?.kind === "rest") {
+      if (restReadyCountdown !== null) {
+        return `Comienza en ${restReadyCountdown}`;
+      }
+
+      if (isRestWaitingForReady && !playerReady) {
+        return "Esperando cuerpo completo";
+      }
+
+      return nextExercise
+        ? `Siguiente: ${nextExercise.name}`
+        : "Prepárate para continuar";
+    }
+
     return currentStepProgressText;
   })();
 
@@ -580,7 +657,9 @@ function BattlePage() {
     ? estimatedCalories >= calorieGoal
       ? "Victoria"
       : "Sobrecarga automática"
-    : nextExercise?.name ?? "Evaluar meta calórica";
+    : nextExercise
+      ? `${nextExercise.name}${nextExerciseGoal ? ` · ${nextExerciseGoal}` : ""}`
+      : "Evaluar meta calórica";
 
   const mobileRoundLabel = isOverload
     ? `Extra ${overloadRound}`
@@ -617,6 +696,20 @@ function BattlePage() {
     }
 
     if (currentStep?.kind === "rest") {
+      if (restReadyCountdown !== null) {
+        return {
+          value: String(restReadyCountdown),
+          unit: "COMIENZA EN",
+        };
+      }
+
+      if (isRestWaitingForReady && !playerReady) {
+        return {
+          value: "—",
+          unit: "VUELVE AL ENCUADRE",
+        };
+      }
+
       return {
         value: String(Math.max(remainingSeconds ?? 0, 0)),
         unit: "SEGUNDOS",
@@ -660,7 +753,13 @@ function BattlePage() {
     }
 
     if (currentStep?.kind === "rest") {
-      return "RESPIRA Y PREPÁRATE";
+      if (isRestReturnWindow) {
+        return playerReady
+          ? "MANTÉN LA POSICIÓN"
+          : "VUELVE A TU POSICIÓN";
+      }
+
+      return "TOMA AGUA Y RECUPERA EL AIRE";
     }
 
     if (feedback.tone === "error") {
@@ -774,6 +873,52 @@ function BattlePage() {
     currentTarget,
     currentValue,
     isAwaitingCalorieCheck,
+    sessionStatus,
+    speakMessage,
+  ]);
+
+  useEffect(() => {
+    if (
+      sessionStatus !== "active" ||
+      currentStep?.kind !== "rest" ||
+      (remainingSeconds ?? 0) !== 5
+    ) {
+      return;
+    }
+
+    const announcementKey = `${currentStep.key}-return`;
+
+    if (lastRestReturnAnnouncementRef.current === announcementKey) {
+      return;
+    }
+
+    lastRestReturnAnnouncementRef.current = announcementKey;
+    speakMessage(
+      `Vuelve a tu posición. Siguiente ejercicio: ${nextExercise?.name ?? "continúa con la rutina"}.`,
+      true,
+    );
+  }, [
+    currentStep,
+    nextExercise?.name,
+    remainingSeconds,
+    sessionStatus,
+    speakMessage,
+  ]);
+
+  useEffect(() => {
+    if (
+      sessionStatus !== "active" ||
+      currentStep?.kind !== "rest" ||
+      restReadyCountdown === null ||
+      restReadyCountdown <= 0
+    ) {
+      return;
+    }
+
+    speakMessage(String(restReadyCountdown), true);
+  }, [
+    currentStep?.kind,
+    restReadyCountdown,
     sessionStatus,
     speakMessage,
   ]);
@@ -964,6 +1109,7 @@ function BattlePage() {
     if (
       sessionStatus !== "active" ||
       isAwaitingCalorieCheck ||
+      currentStep?.kind === "rest" ||
       cameraStatus !== "active" ||
       bodyVisible ||
       document.hidden
@@ -994,6 +1140,7 @@ function BattlePage() {
   }, [
     bodyVisible,
     cameraStatus,
+    currentStep?.kind,
     isAwaitingCalorieCheck,
     resetMovementDetectors,
     sessionStatus,
@@ -1115,6 +1262,53 @@ function BattlePage() {
       };
     }
 
+    if (
+      sessionStatus === "active" &&
+      currentStep?.kind === "rest"
+    ) {
+      if (restReadyCountdown !== null) {
+        return {
+          title: "Posición confirmada",
+          message: `El siguiente ejercicio comienza en ${restReadyCountdown}.`,
+          tone: "ready",
+        };
+      }
+
+      if (isRestWaitingForReady) {
+        return playerReady
+          ? {
+              title: "Jugador listo",
+              message: "Mantén la posición para iniciar la cuenta regresiva.",
+              tone: "ready",
+            }
+          : {
+              title: "Vuelve a tu posición",
+              message: `El descanso terminó. Prepárate para ${nextExercise?.name ?? "continuar"}.`,
+              tone: "warning",
+            };
+      }
+
+      if ((remainingSeconds ?? 0) <= 5) {
+        return playerReady
+          ? {
+              title: "Prepárate",
+              message: `Siguiente: ${nextExercise?.name ?? "continúa con la rutina"}.`,
+              tone: "ready",
+            }
+          : {
+              title: "Vuelve al encuadre",
+              message: `Quedan ${remainingSeconds ?? 0} segundos de descanso.`,
+              tone: "warning",
+            };
+      }
+
+      return {
+        title: "Descanso en curso",
+        message: "Puedes relajarte, respirar y tomar agua.",
+        tone: "ready",
+      };
+    }
+
     if (!poseDetected) {
       return {
         title: "No encontramos tu cuerpo",
@@ -1157,16 +1351,6 @@ function BattlePage() {
             estimatedCalories >= calorieGoal
               ? "Meta alcanzada. Confirmando la victoria."
               : "La meta aún no se alcanza. Preparando sobrecarga automática.",
-          tone: "ready",
-        };
-      }
-
-      if (currentStep?.kind === "rest") {
-        return {
-          title: "Recuperación",
-
-          message: `Descansa y prepárate para ${nextExercise?.name ?? "el siguiente ejercicio"}.`,
-
           tone: "ready",
         };
       }
@@ -1260,6 +1444,17 @@ function BattlePage() {
 
   function handleResumeRoutine() {
     if (sessionStatus !== "paused" || pauseReason === "body_lost") {
+      return;
+    }
+
+    if (currentStep?.kind === "rest") {
+      setPauseReason(null);
+      setSessionStatus("active");
+      setFeedback({
+        label: "Descanso reanudado",
+        message: "El temporizador de descanso continuará desde donde se detuvo.",
+        tone: "good",
+      });
       return;
     }
 
@@ -1422,7 +1617,10 @@ function BattlePage() {
     void ensureNextLevel({
       afterSequence: missionSequence,
       difficulty: profile.fitnessLevel,
-      minimumCalories: profile.minimumCalorieGoal,
+      minimumCalories: Math.max(
+        MINIMUM_ROUTINE_CALORIES,
+        profile.minimumCalorieGoal,
+      ),
       preferAI: false,
       weightKg: profile.weightKg,
       heightCm: profile.heightCm,
@@ -1561,6 +1759,7 @@ function BattlePage() {
     validRepetitionsRef.current = 0;
     lastAnnouncedStepRef.current = null;
     lastMilestoneRef.current = null;
+    lastRestReturnAnnouncementRef.current = null;
     lastInvalidVoiceAtRef.current = 0;
 
     setRepetitions(0);
@@ -1793,6 +1992,12 @@ function BattlePage() {
                           </span>
 
                           <h2>{mobileStageTitle}</h2>
+                          {currentExerciseUsesOptionalDumbbells &&
+                            currentStep?.kind === "exercise" && (
+                              <span className="mobile-training-equipment">
+                                Mancuernas opcionales
+                              </span>
+                            )}
                         </div>
 
                         <strong>{mobileStageProgress}</strong>
@@ -1811,6 +2016,17 @@ function BattlePage() {
                         <span>{mobileCounter.unit}</span>
                       </div>
 
+                      {currentStep?.kind === "rest" && nextExercise && (
+                        <div className="mobile-training-next-exercise">
+                          <span>SIGUIENTE EJERCICIO</span>
+                          <strong>{nextExercise.name}</strong>
+                          <b>{nextExerciseGoal}</b>
+                          {nextExercise.equipment === "optional-dumbbells" && (
+                            <small>Mancuernas opcionales</small>
+                          )}
+                        </div>
+                      )}
+
                       <div className="mobile-training-current__bar">
                         <div
                           className="mobile-training-current__value"
@@ -1827,7 +2043,13 @@ function BattlePage() {
 
                       <div className="mobile-training-current__footer">
                         <span>
-                          Siguiente: <strong>{mobileNextLabel}</strong>
+                          {currentStep?.kind === "rest" ? (
+                            <>Recuperación inteligente activa</>
+                          ) : currentExerciseUsesOptionalDumbbells ? (
+                            <>Equipo: <strong>mancuernas opcionales</strong></>
+                          ) : (
+                            <>Siguiente: <strong>{mobileNextLabel}</strong></>
+                          )}
                         </span>
 
                         <div className="mobile-training-current__actions">
@@ -2100,7 +2322,15 @@ function BattlePage() {
                       <strong>{nextExercise?.name ?? "--"}</strong>
                     </div>
 
-                    <p>Recupera el aliento y prepárate para continuar.</p>
+                    <p>
+                      {isRestWaitingForReady
+                        ? playerReady
+                          ? `Mantén la posición. Comienza en ${restReadyCountdown ?? 3}.`
+                          : "El descanso terminó. Vuelve completamente al encuadre."
+                        : (remainingSeconds ?? 0) <= 5
+                          ? `Vuelve a tu posición. Siguiente: ${nextExercise?.name ?? "continúa"}.`
+                          : "Puedes relajarte, respirar y tomar agua."}
+                    </p>
                   </div>
                 )}
 

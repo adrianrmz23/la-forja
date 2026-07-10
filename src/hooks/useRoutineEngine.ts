@@ -47,6 +47,16 @@ type MovementMode = "repetitions" | "combinations";
 interface UseRoutineEngineOptions {
   routine: WorkoutRoutine;
   isRunning: boolean;
+
+  /**
+   * Durante un descanso, la cuenta llega a cero pero el siguiente
+   * ejercicio no comienza hasta que esta función devuelva true.
+   */
+  canCompleteRest?: () => boolean;
+
+  /** Cuenta regresiva visible antes de iniciar el siguiente ejercicio. */
+  restReadyCountdownSeconds?: number;
+
   onStepComplete?: (step: ExerciseRoutineStep) => void;
   onOverloadRoundStart?: (round: number) => void;
   onComplete?: () => void;
@@ -172,6 +182,8 @@ function buildOverloadRoundSteps(
 export function useRoutineEngine({
   routine,
   isRunning,
+  canCompleteRest,
+  restReadyCountdownSeconds = 3,
   onStepComplete,
   onOverloadRoundStart,
   onComplete,
@@ -189,6 +201,10 @@ export function useRoutineEngine({
   const [isAwaitingCalorieCheck, setIsAwaitingCalorieCheck] =
     useState(false);
   const [overloadRound, setOverloadRound] = useState(0);
+  const [isRestWaitingForReady, setIsRestWaitingForReady] =
+    useState(false);
+  const [restReadyCountdown, setRestReadyCountdown] =
+    useState<number | null>(null);
 
   const stepsRef = useRef<RoutineStep[]>(baseSteps);
   const currentStepIndexRef = useRef(0);
@@ -197,6 +213,9 @@ export function useRoutineEngine({
   const completeRef = useRef(false);
   const awaitingCalorieCheckRef = useRef(false);
   const overloadRoundRef = useRef(0);
+  const restWaitingRef = useRef(false);
+  const restReadyCountdownRef = useRef<number | null>(null);
+  const canCompleteRestRef = useRef(canCompleteRest);
 
   const onStepCompleteRef = useRef(onStepComplete);
   const onOverloadRoundStartRef = useRef(onOverloadRoundStart);
@@ -213,6 +232,10 @@ export function useRoutineEngine({
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
+
+  useEffect(() => {
+    canCompleteRestRef.current = canCompleteRest;
+  }, [canCompleteRest]);
 
   const currentStep = steps[currentStepIndex] ?? null;
 
@@ -258,9 +281,13 @@ export function useRoutineEngine({
 
     elapsedSecondsRef.current = 0;
     currentCountRef.current = 0;
+    restWaitingRef.current = false;
+    restReadyCountdownRef.current = null;
 
     setElapsedSeconds(0);
     setCurrentCount(0);
+    setIsRestWaitingForReady(false);
+    setRestReadyCountdown(null);
 
     if (nextStepIndex >= availableSteps.length) {
       requestCalorieCheck(nextStepIndex);
@@ -272,9 +299,9 @@ export function useRoutineEngine({
   }, [requestCalorieCheck]);
 
   /*
-   * Descansos y active_duration son las únicas etapas
-   * que avanzan mediante segundos. Las repeticiones y
-   * combinaciones siempre requieren un detector válido.
+   * Los descansos cuentan hasta cero. Al finalizar, esperan a que
+   * el jugador vuelva al encuadre y ejecutan una cuenta 3, 2, 1.
+   * Los ejercicios active_duration conservan el comportamiento normal.
    */
   useEffect(() => {
     if (
@@ -300,15 +327,30 @@ export function useRoutineEngine({
         ? currentStep.duration
         : currentStep.exercise.target;
 
+    if (isRest && restWaitingRef.current) {
+      return;
+    }
+
     const intervalId = window.setInterval(() => {
-      const nextElapsed = elapsedSecondsRef.current + 1;
+      const nextElapsed = Math.min(
+        elapsedSecondsRef.current + 1,
+        targetSeconds,
+      );
 
       elapsedSecondsRef.current = nextElapsed;
       setElapsedSeconds(nextElapsed);
 
-      if (nextElapsed >= targetSeconds) {
-        completeCurrentStep();
+      if (nextElapsed < targetSeconds) {
+        return;
       }
+
+      if (isRest) {
+        restWaitingRef.current = true;
+        setIsRestWaitingForReady(true);
+        return;
+      }
+
+      completeCurrentStep();
     }, 1000);
 
     return () => {
@@ -320,6 +362,83 @@ export function useRoutineEngine({
     isAwaitingCalorieCheck,
     isComplete,
     isRunning,
+  ]);
+
+  /*
+   * Cuando el descanso terminó, consulta periódicamente si el cuerpo
+   * está listo. La cuenta se reinicia si el jugador vuelve a salir.
+   */
+  useEffect(() => {
+    if (
+      !isRunning ||
+      isComplete ||
+      isAwaitingCalorieCheck ||
+      currentStep?.kind !== "rest" ||
+      !isRestWaitingForReady
+    ) {
+      return;
+    }
+
+    let countdownStartedAt: number | null = null;
+    let completed = false;
+    const countdownSeconds = Math.max(0, restReadyCountdownSeconds);
+
+    const checkReadiness = () => {
+      if (completed) {
+        return;
+      }
+      const ready = canCompleteRestRef.current?.() ?? true;
+
+      if (!ready) {
+        countdownStartedAt = null;
+        restReadyCountdownRef.current = null;
+        setRestReadyCountdown(null);
+        return;
+      }
+
+      if (countdownSeconds === 0) {
+        completed = true;
+        completeCurrentStep();
+        return;
+      }
+
+      if (countdownStartedAt === null) {
+        countdownStartedAt = performance.now();
+        restReadyCountdownRef.current = countdownSeconds;
+        setRestReadyCountdown(countdownSeconds);
+        return;
+      }
+
+      const elapsed = Math.floor(
+        (performance.now() - countdownStartedAt) / 1000,
+      );
+      const remaining = Math.max(countdownSeconds - elapsed, 0);
+
+      if (restReadyCountdownRef.current !== remaining) {
+        restReadyCountdownRef.current = remaining;
+        setRestReadyCountdown(remaining);
+      }
+
+      if (remaining <= 0) {
+        completed = true;
+        completeCurrentStep();
+      }
+    };
+
+    checkReadiness();
+    const intervalId = window.setInterval(checkReadiness, 200);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [
+    completeCurrentStep,
+    currentStep,
+    isAwaitingCalorieCheck,
+    isComplete,
+    isRestWaitingForReady,
+    isRunning,
+    restReadyCountdownSeconds,
   ]);
 
   const registerMovement = useCallback(
@@ -379,7 +498,11 @@ export function useRoutineEngine({
       }
 
       awaitingCalorieCheckRef.current = false;
+      restWaitingRef.current = false;
+      restReadyCountdownRef.current = null;
       setIsAwaitingCalorieCheck(false);
+      setIsRestWaitingForReady(false);
+      setRestReadyCountdown(null);
 
       if (goalReached) {
         finishRoutine();
@@ -431,6 +554,8 @@ export function useRoutineEngine({
     completeRef.current = false;
     awaitingCalorieCheckRef.current = false;
     overloadRoundRef.current = 0;
+    restWaitingRef.current = false;
+    restReadyCountdownRef.current = null;
 
     setSteps(initialSteps);
     setCurrentStepIndex(0);
@@ -439,6 +564,8 @@ export function useRoutineEngine({
     setIsComplete(false);
     setIsAwaitingCalorieCheck(false);
     setOverloadRound(0);
+    setIsRestWaitingForReady(false);
+    setRestReadyCountdown(null);
   }, [routine]);
 
   const skipCurrentStep = useCallback(() => {
@@ -543,6 +670,8 @@ export function useRoutineEngine({
     isAwaitingCalorieCheck,
     isOverload,
     overloadRound,
+    isRestWaitingForReady,
+    restReadyCountdown,
 
     registerRepetition,
     registerCombination,

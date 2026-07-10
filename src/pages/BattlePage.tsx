@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -22,6 +22,8 @@ import {
   Sparkles,
   Swords,
   Target,
+  Volume2,
+  VolumeX,
   XCircle,
   Zap,
 } from "lucide-react";
@@ -64,6 +66,24 @@ type BattleSessionStatus =
 
 type PauseReason = "manual" | "body_lost" | "tab_hidden";
 
+
+type FeedbackSound = "success" | "error" | "complete";
+
+interface WebkitAudioWindow extends Window {
+  webkitAudioContext?: typeof AudioContext;
+}
+
+const DISTANCE_CUES: Record<string, string> = {
+  march: "ALTERNA LAS PIERNAS",
+  "high-knees": "ELEVA LAS RODILLAS",
+  squat: "BAJA CON CONTROL",
+  lunge: "ALTERNA LOS DESPLANTES",
+  jab: "EXTIENDE Y VUELVE A GUARDIA",
+  cross: "GIRA Y REGRESA A GUARDIA",
+  hooks: "GIRA EL TORSO Y PROTEGE EL ROSTRO",
+  "boxing-combination": "COMPLETA LA COMBINACIÓN",
+};
+
 interface BattleFeedback {
   label: string;
   message: string;
@@ -89,6 +109,14 @@ function BattlePage() {
   }>();
 
   const validRepetitionsRef = useRef(0);
+
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const lastAnnouncedStepRef = useRef<string | null>(null);
+  const lastMilestoneRef = useRef<string | null>(null);
+  const lastInvalidVoiceAtRef = useRef(0);
+
+  const [audioEnabled, setAudioEnabled] = useState(true);
+
 
   const [repetitions, setRepetitions] = useState(0);
 
@@ -128,6 +156,128 @@ function BattlePage() {
   const [nextLevelGenerationError, setNextLevelGenerationError] = useState<
     string | null
   >(null);
+
+  const unlockAudio = useCallback((): AudioContext | null => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const AudioContextConstructor =
+      window.AudioContext ??
+      (window as WebkitAudioWindow).webkitAudioContext;
+
+    if (!AudioContextConstructor) {
+      return null;
+    }
+
+    let context = audioContextRef.current;
+
+    if (!context || context.state === "closed") {
+      context = new AudioContextConstructor();
+      audioContextRef.current = context;
+    }
+
+    if (context.state === "suspended") {
+      void context.resume();
+    }
+
+    return context;
+  }, []);
+
+  const playFeedbackSound = useCallback(
+    (sound: FeedbackSound) => {
+      if (!audioEnabled) {
+        return;
+      }
+
+      const context = unlockAudio();
+
+      if (!context) {
+        return;
+      }
+
+      const oscillator = context.createOscillator();
+      const gainNode = context.createGain();
+      const now = context.currentTime;
+
+      const frequency =
+        sound === "error"
+          ? 220
+          : sound === "complete"
+            ? 1040
+            : 760;
+
+      const duration = sound === "complete" ? 0.22 : 0.1;
+      const peakGain = sound === "error" ? 0.055 : 0.04;
+
+      oscillator.type = sound === "error" ? "sawtooth" : "sine";
+      oscillator.frequency.setValueAtTime(frequency, now);
+
+      gainNode.gain.setValueAtTime(0.0001, now);
+      gainNode.gain.exponentialRampToValueAtTime(peakGain, now + 0.015);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(context.destination);
+
+      oscillator.start(now);
+      oscillator.stop(now + duration + 0.02);
+    },
+    [audioEnabled, unlockAudio],
+  );
+
+  const speakMessage = useCallback(
+    (message: string, interrupt = false, force = false) => {
+      if (
+        typeof window === "undefined" ||
+        !("speechSynthesis" in window) ||
+        (!audioEnabled && !force)
+      ) {
+        return;
+      }
+
+      const normalizedMessage = message.trim();
+
+      if (!normalizedMessage) {
+        return;
+      }
+
+      if (interrupt) {
+        window.speechSynthesis.cancel();
+      }
+
+      const utterance = new SpeechSynthesisUtterance(normalizedMessage);
+      const voices = window.speechSynthesis.getVoices();
+      const spanishVoice =
+        voices.find((voice) => voice.lang.toLowerCase().startsWith("es-mx")) ??
+        voices.find((voice) => voice.lang.toLowerCase().startsWith("es"));
+
+      utterance.lang = spanishVoice?.lang ?? "es-MX";
+      utterance.voice = spanishVoice ?? null;
+      utterance.rate = 0.92;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+
+      window.speechSynthesis.speak(utterance);
+    },
+    [audioEnabled],
+  );
+
+  const handleToggleAudio = useCallback(() => {
+    const nextEnabled = !audioEnabled;
+    setAudioEnabled(nextEnabled);
+
+    if (!nextEnabled) {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+
+      return;
+    }
+
+    unlockAudio();
+    speakMessage("Indicaciones por voz activadas.", true, true);
+  }, [audioEnabled, speakMessage, unlockAudio]);
 
   const completeMission = usePlayerStore((state) => state.completeMission);
 
@@ -426,38 +576,6 @@ function BattlePage() {
     return currentStepProgressText;
   })();
 
-  const mobileInstruction = (() => {
-    if (sessionStatus === "paused") {
-      return pauseReason === "body_lost"
-        ? "Regresa completamente al encuadre para continuar."
-        : "Reanuda cuando estés preparado para seguir entrenando.";
-    }
-
-    if (sessionStatus === "positioning") {
-      return playerReady
-        ? "Mantén esta posición. La rutina comenzará automáticamente."
-        : "Aléjate hasta que se vean tu cabeza, cadera, rodillas y pies.";
-    }
-
-    if (sessionStatus === "countdown") {
-      return "Mantente completamente de pie dentro del encuadre.";
-    }
-
-    if (isAwaitingCalorieCheck) {
-      return estimatedCalories >= calorieGoal
-        ? "Objetivo alcanzado. Confirmando la victoria."
-        : "La Forja está preparando una ronda adicional.";
-    }
-
-    if (currentStep?.kind === "rest") {
-      return `Recupera el aliento. Después continúa con ${nextExercise?.name ?? "el siguiente ejercicio"}.`;
-    }
-
-    return technique.instruction ||
-      currentExercise?.instructions ||
-      "Sigue las indicaciones del ejercicio actual.";
-  })();
-
   const mobileNextLabel = isAwaitingCalorieCheck
     ? estimatedCalories >= calorieGoal
       ? "Victoria"
@@ -467,6 +585,217 @@ function BattlePage() {
   const mobileRoundLabel = isOverload
     ? `Extra ${overloadRound}`
     : `${currentRound}/${totalRounds}`;
+
+
+  const mobileCounter = (() => {
+    if (sessionStatus === "positioning") {
+      return {
+        value: String(Math.max(positioningSeconds, 0)),
+        unit: "SEGUNDOS",
+      };
+    }
+
+    if (sessionStatus === "countdown") {
+      return {
+        value: String(Math.max(countdown, 0)),
+        unit: "PREPÁRATE",
+      };
+    }
+
+    if (sessionStatus === "paused") {
+      return {
+        value: "PAUSA",
+        unit: "PROGRESO GUARDADO",
+      };
+    }
+
+    if (isAwaitingCalorieCheck) {
+      return {
+        value: `${estimatedCalories.toFixed(0)} / ${calorieGoal}`,
+        unit: "KCAL",
+      };
+    }
+
+    if (currentStep?.kind === "rest") {
+      return {
+        value: String(Math.max(remainingSeconds ?? 0, 0)),
+        unit: "SEGUNDOS",
+      };
+    }
+
+    const unitLabels = {
+      repetition: "REPETICIONES",
+      step: "PASOS",
+      punch: "GOLPES",
+      combination: "COMBINACIONES",
+    } as const;
+
+    return {
+      value: `${currentValue} / ${currentTarget}`,
+      unit: unitLabels[currentExercise?.countUnit ?? "repetition"],
+    };
+  })();
+
+  const mobileDistanceCue = (() => {
+    if (sessionStatus === "paused") {
+      return pauseReason === "body_lost"
+        ? "VUELVE COMPLETAMENTE AL ENCUADRE"
+        : "REANUDA CUANDO ESTÉS LISTO";
+    }
+
+    if (sessionStatus === "positioning") {
+      return playerReady
+        ? "MANTÉN LA POSICIÓN"
+        : "ALÉJATE HASTA VER TODO TU CUERPO";
+    }
+
+    if (sessionStatus === "countdown") {
+      return "MANTENTE QUIETO Y LISTO";
+    }
+
+    if (isAwaitingCalorieCheck) {
+      return estimatedCalories >= calorieGoal
+        ? "OBJETIVO ALCANZADO"
+        : "PREPARANDO SOBRECARGA";
+    }
+
+    if (currentStep?.kind === "rest") {
+      return "RESPIRA Y PREPÁRATE";
+    }
+
+    if (feedback.tone === "error") {
+      return feedback.label.toUpperCase();
+    }
+
+    return (
+      DISTANCE_CUES[currentExercise?.detector ?? ""] ??
+      "SIGUE EL MOVIMIENTO EN PANTALLA"
+    );
+  })();
+
+  const mobileTrainingClassName = mobileTrainingMode
+    ? "battle-page--mobile-training battle-page--distance-mode"
+    : "";
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+
+      const context = audioContextRef.current;
+      audioContextRef.current = null;
+
+      if (context && context.state !== "closed") {
+        void context.close();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (sessionStatus !== "countdown" || countdown <= 0) {
+      return;
+    }
+
+    speakMessage(String(countdown), true);
+  }, [countdown, sessionStatus, speakMessage]);
+
+  useEffect(() => {
+    if (
+      sessionStatus !== "active" ||
+      !currentStep ||
+      isAwaitingCalorieCheck ||
+      battleWon
+    ) {
+      return;
+    }
+
+    if (lastAnnouncedStepRef.current === currentStep.key) {
+      return;
+    }
+
+    lastAnnouncedStepRef.current = currentStep.key;
+    lastMilestoneRef.current = null;
+
+    if (currentStep.kind === "rest") {
+      speakMessage(
+        `Descansa ${currentStep.duration} segundos. Siguiente ejercicio: ${nextExercise?.name ?? "continúa con la rutina"}.`,
+        true,
+      );
+
+      return;
+    }
+
+    const cue = DISTANCE_CUES[currentStep.exercise.detector] ??
+      "Sigue las indicaciones en pantalla";
+
+    speakMessage(`${currentStep.exercise.name}. ${cue}.`, true);
+  }, [
+    battleWon,
+    currentStep,
+    isAwaitingCalorieCheck,
+    nextExercise?.name,
+    sessionStatus,
+    speakMessage,
+  ]);
+
+  useEffect(() => {
+    if (
+      sessionStatus !== "active" ||
+      currentStep?.kind !== "exercise" ||
+      isAwaitingCalorieCheck ||
+      battleWon
+    ) {
+      return;
+    }
+
+    const remaining = Math.max(currentTarget - currentValue, 0);
+    const milestones = new Set<number>([10, 5]);
+
+    if (currentTarget >= 30) {
+      milestones.add(Math.floor(currentTarget / 2));
+    }
+
+    if (!milestones.has(remaining) || remaining <= 0) {
+      return;
+    }
+
+    const milestoneKey = `${currentStep.key}-${remaining}`;
+
+    if (lastMilestoneRef.current === milestoneKey) {
+      return;
+    }
+
+    lastMilestoneRef.current = milestoneKey;
+    speakMessage(`${remaining} restantes.`);
+  }, [
+    battleWon,
+    currentStep,
+    currentTarget,
+    currentValue,
+    isAwaitingCalorieCheck,
+    sessionStatus,
+    speakMessage,
+  ]);
+
+  useEffect(() => {
+    if (!isAwaitingCalorieCheck || battleWon) {
+      return;
+    }
+
+    speakMessage(
+      estimatedCalories >= calorieGoal
+        ? "Objetivo calórico alcanzado."
+        : "Preparando una ronda de sobrecarga.",
+      true,
+    );
+  }, [
+    battleWon,
+    calorieGoal,
+    estimatedCalories,
+    isAwaitingCalorieCheck,
+    speakMessage,
+  ]);
 
   /*
    * Al terminar la rutina principal o una ronda de
@@ -875,6 +1204,12 @@ function BattlePage() {
   }[cameraStatus];
 
   async function handleActivateCamera() {
+    unlockAudio();
+    speakMessage(
+      "Tienes diez segundos para alejarte y mostrar tu cuerpo completo.",
+      true,
+    );
+
     resetMovementDetectors();
 
     setPauseReason(null);
@@ -919,6 +1254,8 @@ function BattlePage() {
 
       tone: "neutral",
     });
+
+    speakMessage("Rutina pausada.", true);
   }
 
   function handleResumeRoutine() {
@@ -952,6 +1289,10 @@ function BattlePage() {
   }
 
   function handleStopCamera() {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+
     stopCamera();
 
     resetMovementDetectors();
@@ -990,6 +1331,9 @@ function BattlePage() {
   }
 
   function handleOverloadRoundStart(round: number) {
+    speakMessage(`Sobrecarga ${round}. Continúa con movimientos válidos.`, true);
+    playFeedbackSound("complete");
+
     setFeedback({
       label: `Sobrecarga ${round}`,
 
@@ -1008,6 +1352,9 @@ function BattlePage() {
    * no al terminar toda la rutina.
    */
   function handleRoutineStepComplete(step: ExerciseRoutineStep) {
+    playFeedbackSound("complete");
+    speakMessage("Ejercicio completado.");
+
     if (step.exercise.detector !== "squat") {
       setDamageAmount(5);
 
@@ -1034,6 +1381,9 @@ function BattlePage() {
    * los bloques y rondas.
    */
   function handleRoutineComplete() {
+    playFeedbackSound("complete");
+    speakMessage("Rutina completada. Victoria.", true);
+
     setPauseReason(null);
 
     setSessionStatus("finished");
@@ -1143,6 +1493,7 @@ function BattlePage() {
 
     setDamageAmount(movement.damage);
     setImpactKey((current) => current + 1);
+    playFeedbackSound("success");
   }
 
   function simulateCurrentMovement() {
@@ -1195,10 +1546,22 @@ function BattlePage() {
 
       tone: "error",
     });
+
+    playFeedbackSound("error");
+
+    const now = Date.now();
+
+    if (now - lastInvalidVoiceAtRef.current >= 1800) {
+      lastInvalidVoiceAtRef.current = now;
+      speakMessage(messages[reason], true);
+    }
   }
 
   function restartBattle() {
     validRepetitionsRef.current = 0;
+    lastAnnouncedStepRef.current = null;
+    lastMilestoneRef.current = null;
+    lastInvalidVoiceAtRef.current = 0;
 
     setRepetitions(0);
 
@@ -1238,11 +1601,7 @@ function BattlePage() {
 
   return (
     <main
-      className={`battle-page ${
-        mobileTrainingMode
-          ? "battle-page--mobile-training"
-          : ""
-      }`}
+      className={`battle-page ${mobileTrainingClassName}`}
     >
       <div className="battle-page__glow battle-page__glow--left" />
       <div className="battle-page__glow battle-page__glow--right" />
@@ -1422,7 +1781,9 @@ function BattlePage() {
                       </div>
                     </div>
 
-                    <div className="mobile-training-current">
+                    <div
+                      className={`mobile-training-current mobile-training-current--${sessionStatus}`}
+                    >
                       <div className="mobile-training-current__heading">
                         <div>
                           <span>
@@ -1437,6 +1798,19 @@ function BattlePage() {
                         <strong>{mobileStageProgress}</strong>
                       </div>
 
+                      <div
+                        className="mobile-training-current__counter"
+                        aria-live="polite"
+                      >
+                        <strong
+                          key={`${currentStep?.key ?? sessionStatus}-${mobileCounter.value}`}
+                        >
+                          {mobileCounter.value}
+                        </strong>
+
+                        <span>{mobileCounter.unit}</span>
+                      </div>
+
                       <div className="mobile-training-current__bar">
                         <div
                           className="mobile-training-current__value"
@@ -1446,37 +1820,64 @@ function BattlePage() {
                         />
                       </div>
 
-                      <p>{mobileInstruction}</p>
+                      <p className="mobile-training-current__cue">
+                        <Zap size={20} fill="currentColor" />
+                        <span>{mobileDistanceCue}</span>
+                      </p>
 
                       <div className="mobile-training-current__footer">
                         <span>
                           Siguiente: <strong>{mobileNextLabel}</strong>
                         </span>
 
-                        {sessionStatus === "active" &&
-                          !isAwaitingCalorieCheck && (
-                            <button
-                              className="mobile-training-action"
-                              onClick={handleManualPause}
-                              type="button"
-                            >
-                              <Pause size={16} />
-                              Pausar
-                            </button>
-                          )}
+                        <div className="mobile-training-current__actions">
+                          <button
+                            className="mobile-training-action mobile-training-action--icon"
+                            onClick={handleToggleAudio}
+                            aria-label={
+                              audioEnabled
+                                ? "Desactivar voz y sonidos"
+                                : "Activar voz y sonidos"
+                            }
+                            title={
+                              audioEnabled
+                                ? "Desactivar voz y sonidos"
+                                : "Activar voz y sonidos"
+                            }
+                            type="button"
+                          >
+                            {audioEnabled ? (
+                              <Volume2 size={18} />
+                            ) : (
+                              <VolumeX size={18} />
+                            )}
+                          </button>
 
-                        {sessionStatus === "paused" &&
-                          pauseReason !== "body_lost" && (
-                            <button
-                              className="mobile-training-action"
-                              onClick={handleResumeRoutine}
-                              disabled={!playerReady}
-                              type="button"
-                            >
-                              <Play size={16} fill="currentColor" />
-                              Reanudar
-                            </button>
-                          )}
+                          {sessionStatus === "active" &&
+                            !isAwaitingCalorieCheck && (
+                              <button
+                                className="mobile-training-action"
+                                onClick={handleManualPause}
+                                type="button"
+                              >
+                                <Pause size={16} />
+                                Pausar
+                              </button>
+                            )}
+
+                          {sessionStatus === "paused" &&
+                            pauseReason !== "body_lost" && (
+                              <button
+                                className="mobile-training-action"
+                                onClick={handleResumeRoutine}
+                                disabled={!playerReady}
+                                type="button"
+                              >
+                                <Play size={16} fill="currentColor" />
+                                Reanudar
+                              </button>
+                            )}
+                        </div>
                       </div>
                     </div>
                   </div>

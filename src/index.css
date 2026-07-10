@@ -4868,3 +4868,342 @@ button {
     min-height: 32px;
   }
 }
+
+/* =========================================================
+   LA FORJA · MODO DISTANCIA V2
+   Agrega este bloque DESPUÉS de mobile-training-mode.css
+   o al final de src/index.css.
+   ========================================================= */
+
+@media (max-width: 820px) {
+  .battle-page--distance-mode .camera-preview::after {
+    position: absolute;
+    z-index: 6;
+    inset: 0;
+    content: "";
+    pointer-events: none;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(0, 0, 0, 0.32) 0%,
+        transparent 22%,
+        transparent 48%,
+        rgba(0, 0, 0, 0.22) 61%,
+        rgba(0, 0, 0, 0.78) 100%
+      );
+  }
+
+  .battle-page--distance-mode .mobile-training-hud {
+    z-index: 12;
+  }
+
+  .battle-page--distance-mode .mobile-training-hud__top {
+    top: calc(env(safe-area-inset-top) + 8px);
+  }
+
+  .battle-page--distance-mode .mobile-training-enemy {
+    padding: 8px 11px;
+    border-radius: 13px;
+    background: rgba(5, 6, 10, 0.78);
+  }
+
+  .battle-page--distance-mode .mobile-training-enemy__heading span {
+    font-size: 0.43rem;
+  }
+
+  .battle-page--distance-mode .mobile-training-enemy__heading strong {
+    font-size: 0.7rem;
+  }
+
+  .battle-page--distance-mode .mobile-training-enemy__heading b {
+    font-size: 0.64rem;
+  }
+
+  .battle-page--distance-mode .mobile-training-enemy__bar {
+    height: 5px;
+    margin-top: 6px;
+  }
+
+  .battle-page--distance-mode .mobile-training-guidance {
+    top: 31%;
+    width: min(90%, 430px);
+    padding: 13px 14px;
+    border-width: 2px;
+    border-radius: 16px;
+    background: rgba(4, 5, 8, 0.88);
+  }
+
+  .battle-page--distance-mode .mobile-training-guidance strong {
+    font-size: clamp(0.85rem, 3.6vw, 1.05rem);
+  }
+
+  .battle-page--distance-mode .mobile-training-guidance span {
+    font-size: clamp(0.68rem, 2.8vw, 0.82rem);
+    line-height: 1.35;
+  }
+
+  .battle-page--distance-mode .mobile-training-hud__bottom {
+    right: 10px;
+    bottom: calc(env(safe-area-inset-bottom) + 9px);
+    left: 10px;
+  }
+
+  .battle-page--distance-mode .mobile-training-metrics {
+    margin-bottom: 7px;
+    gap: 6px;
+  }
+
+  .battle-page--distance-mode .mobile-training-metrics > div {
+    min-height: 39px;
+    padding: 7px 6px;
+    border-radius: 11px;
+    background: rgba(5, 6, 10, 0.84);
+  }
+
+  .battle-page--distance-mode .mobile-training-metrics strong {
+    font-size: clamp(0.62rem, 2.8vw, 0.76rem);
+  }
+
+  .battle-page--distance-mode .mobile-training-current {
+    display: flex;
+    min-height: clamp(245px, 35dvh, 330px);
+    padding: 15px 16px 13px;
+    flex-direction: column;
+    justify-content: space-between;
+    border-width: 2px;
+    border-radius: 21px;
+    background:
+      radial-gradient(
+        circle at 50% 0%,
+        rgba(249, 115, 22, 0.12),
+        transparent 48%
+      ),
+      linear-gradient(
+        145deg,
+        rgba(20, 17, 20, 0.97),
+        rgba(4, 5, 9, 0.97)
+      );
+    box-shadow:
+      0 20px 50px rgba(0, 0, 0, 0.55),
+      0 0 30px rgba(249, 115, 22, 0.08),
+      inset 0 1px rgba(255, 255, 255, 0.055);
+  }
+
+  .battle-page--distance-mode .mobile-training-current__heading {
+    gap: 8px;
+  }
+
+  .battle-page--distance-mode .mobile-training-current__heading span {
+    font-size: clamp(0.58rem, 2.6vw, 0.72rem);
+    letter-spacing: 0.11em;
+  }
+
+  .battle-page--distance-mode .mobile-training-current__heading h2 {
+    margin-top: 4px;
+    max-width: 100%;
+    overflow: visible;
+    font-size: clamp(1.35rem, 6vw, 1.9rem);
+    line-height: 1.02;
+    text-overflow: unset;
+    white-space: normal;
+  }
+
+  .battle-page--distance-mode .mobile-training-current__heading > strong {
+    display: none;
+  }
+
+  .mobile-training-current__counter {
+    display: flex;
+    min-height: 86px;
+    margin: 4px 0 2px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .mobile-training-current__counter > strong {
+    display: block;
+    color: #fff;
+    font-family: "Marcellus SC", Georgia, serif;
+    font-size: clamp(3.25rem, 15vw, 5.4rem);
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    letter-spacing: -0.045em;
+    line-height: 0.86;
+    text-shadow:
+      0 3px 0 rgba(0, 0, 0, 0.32),
+      0 0 30px rgba(249, 115, 22, 0.2);
+    animation: mobile-counter-pop 180ms ease-out;
+  }
+
+  .mobile-training-current__counter > span {
+    display: block;
+    margin-top: 10px;
+    color: #fdba74;
+    font-size: clamp(0.66rem, 3.2vw, 0.88rem);
+    font-weight: 900;
+    letter-spacing: 0.17em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .battle-page--distance-mode .mobile-training-current__bar {
+    height: 8px;
+    margin-top: 2px;
+  }
+
+  .mobile-training-current__cue {
+    display: flex !important;
+    min-height: 46px;
+    margin: 10px 0 0 !important;
+    padding: 9px 11px;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    overflow: visible !important;
+    border: 1px solid rgba(249, 115, 22, 0.22);
+    border-radius: 12px;
+    color: #fff7ed !important;
+    background: rgba(249, 115, 22, 0.1);
+    font-size: clamp(0.83rem, 3.8vw, 1.06rem) !important;
+    font-weight: 900;
+    letter-spacing: 0.035em;
+    line-height: 1.08 !important;
+    text-align: center;
+    text-transform: uppercase;
+    -webkit-box-orient: unset !important;
+    -webkit-line-clamp: unset !important;
+  }
+
+  .mobile-training-current__cue svg {
+    flex: 0 0 auto;
+    color: #fb923c;
+  }
+
+  .battle-page--distance-mode .mobile-training-current__footer {
+    min-height: 38px;
+    margin-top: 9px;
+  }
+
+  .battle-page--distance-mode .mobile-training-current__footer > span {
+    max-width: 50%;
+    font-size: clamp(0.55rem, 2.5vw, 0.68rem);
+  }
+
+  .mobile-training-current__actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+  }
+
+  .battle-page--distance-mode .mobile-training-action {
+    min-height: 39px;
+    padding: 0 13px;
+    border-radius: 11px;
+    font-size: 0.62rem;
+  }
+
+  .mobile-training-action--icon {
+    width: 41px;
+    min-width: 41px;
+    padding: 0 !important;
+  }
+
+  .battle-page--distance-mode
+    .mobile-training-current--paused
+    .mobile-training-current__counter > strong {
+    color: #fde68a;
+    font-size: clamp(2.6rem, 12vw, 4.3rem);
+    letter-spacing: 0.03em;
+  }
+
+  .battle-page--distance-mode
+    .mobile-training-current--positioning
+    .mobile-training-current__counter > strong,
+  .battle-page--distance-mode
+    .mobile-training-current--countdown
+    .mobile-training-current__counter > strong {
+    color: #fed7aa;
+  }
+
+  .battle-page--distance-mode
+    .mobile-training-current--countdown
+    .mobile-training-current__counter > strong {
+    font-size: clamp(4.4rem, 22vw, 7rem);
+  }
+
+  @keyframes mobile-counter-pop {
+    from {
+      opacity: 0.72;
+      transform: scale(0.9);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}
+
+@media (max-width: 820px) and (max-height: 740px) {
+  .battle-page--distance-mode .mobile-training-current {
+    min-height: clamp(215px, 35dvh, 260px);
+    padding: 11px 13px 10px;
+  }
+
+  .battle-page--distance-mode .mobile-training-current__heading h2 {
+    font-size: clamp(1.1rem, 5vw, 1.45rem);
+  }
+
+  .mobile-training-current__counter {
+    min-height: 68px;
+    margin: 1px 0;
+  }
+
+  .mobile-training-current__counter > strong {
+    font-size: clamp(2.75rem, 13vw, 4.25rem);
+  }
+
+  .mobile-training-current__counter > span {
+    margin-top: 7px;
+    font-size: 0.62rem;
+  }
+
+  .mobile-training-current__cue {
+    min-height: 39px;
+    margin-top: 7px !important;
+    padding: 7px 9px;
+    font-size: clamp(0.72rem, 3.4vw, 0.9rem) !important;
+  }
+
+  .battle-page--distance-mode .mobile-training-current__footer {
+    margin-top: 6px;
+  }
+
+  .battle-page--distance-mode .mobile-training-metrics > div {
+    min-height: 33px;
+    padding: 5px;
+  }
+
+  .battle-page--distance-mode .mobile-training-guidance {
+    top: 28%;
+  }
+}
+
+@media (max-width: 390px) {
+  .battle-page--distance-mode .mobile-training-current {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .battle-page--distance-mode .mobile-training-current__footer > span {
+    max-width: 43%;
+  }
+
+  .battle-page--distance-mode .mobile-training-action {
+    padding: 0 10px;
+  }
+}

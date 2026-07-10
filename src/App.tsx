@@ -27,12 +27,12 @@ function App() {
       />
 
       <Route
-        path="/mission/awakening"
+        path="/mission/:levelId"
         element={<MissionPage />}
       />
 
       <Route
-        path="/battle/awakening"
+        path="/battle/:levelId"
         element={<BattlePage />}
       />
     </Routes>

@@ -57,6 +57,21 @@ export interface RoutineBlock {
   exercises: RoutineExercise[];
 }
 
+export interface RoutineOverloadConfig {
+  id: string;
+  name: string;
+  description: string;
+
+  /* Descanso antes de la primera ronda adicional. */
+  entryRestSeconds: number;
+
+  /* Descanso entre una ronda adicional y la siguiente. */
+  betweenRoundsRestSeconds: number;
+
+  /* Cada ronda usa estos ejercicios, todos validados por cámara. */
+  exercises: RoutineExercise[];
+}
+
 export interface WorkoutRoutine {
   id: string;
   name: string;
@@ -65,4 +80,5 @@ export interface WorkoutRoutine {
   plannedCalories: number;
   estimatedMinutes: number;
   blocks: RoutineBlock[];
+  overload?: RoutineOverloadConfig;
 }

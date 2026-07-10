@@ -25,25 +25,29 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
-import { Link } from "react-router";
-import { usePlayerStore } from "../stores/playerStore";
-import { useProfileStore } from "../stores/profileStore";
+import { Link, useParams } from "react-router";
+import { usePlayerStore } from "../stores/playerStore.ts";
+import { useProfileStore } from "../stores/profileStore.ts";
+import { useGeneratedLevelStore } from "../stores/generatedLevelStore.ts";
 
-import { useCamera } from "../hooks/useCamera";
-import { usePoseLandmarker } from "../hooks/usePoseLandmarker";
-import { useWorkoutMetrics } from "../hooks/useWorkoutMetrics";
-import type { SquatInvalidReason } from "../hooks/useSquatDetector";
+import { useCamera } from "../hooks/useCamera.ts";
+import { usePoseLandmarker } from "../hooks/usePoseLandmarker.ts";
+import { useWorkoutMetrics } from "../hooks/useWorkoutMetrics.ts";
+import type { SquatInvalidReason } from "../hooks/useSquatDetector.ts";
 import {
   useMovementDetectors,
   type DetectedMovement,
-} from "../hooks/useMovementDetectors";
+} from "../hooks/useMovementDetectors.ts";
 import {
   useRoutineEngine,
   type ExerciseRoutineStep,
-} from "../hooks/useRoutineEngine";
+} from "../hooks/useRoutineEngine.ts";
 
-import { ashAssaultRoutine } from "../data/routines";
-import { formatWorkoutTime } from "../utils/calories";
+import { formatWorkoutTime } from "../utils/calories.ts";
+import {
+  resolveRoutineByLevelId,
+  STATIC_LEVEL_ID,
+} from "../utils/routineResolver.ts";
 
 const MAX_ENEMY_HEALTH = 100;
 
@@ -80,6 +84,10 @@ const initialFeedback: BattleFeedback = {
 };
 
 function BattlePage() {
+  const { levelId: routeLevelId } = useParams<{
+    levelId: string;
+  }>();
+
   const validRepetitionsRef = useRef(0);
 
   const [repetitions, setRepetitions] = useState(0);
@@ -109,9 +117,58 @@ function BattlePage() {
   const [earnedFirstCompletionRewards, setEarnedFirstCompletionRewards] =
     useState(false);
 
+  const [nextLevelId, setNextLevelId] = useState<string | null>(null);
+
+  const [nextLevelSource, setNextLevelSource] = useState<
+    "ai" | "procedural" | null
+  >(null);
+
+  const [isPreparingNextLevel, setIsPreparingNextLevel] = useState(false);
+
+  const [nextLevelGenerationError, setNextLevelGenerationError] = useState<
+    string | null
+  >(null);
+
   const completeMission = usePlayerStore((state) => state.completeMission);
 
   const profile = useProfileStore((state) => state.profile);
+
+  const generatedLevels = useGeneratedLevelStore(
+    (state) => state.levels,
+  );
+
+  const setActiveGeneratedLevel = useGeneratedLevelStore(
+    (state) => state.setActiveLevel,
+  );
+
+  const completeGeneratedLevel = useGeneratedLevelStore(
+    (state) => state.completeLevel,
+  );
+
+  const ensureNextLevel = useGeneratedLevelStore(
+    (state) => state.ensureNextLevel,
+  );
+
+  const {
+    levelId: resolvedLevelId,
+    routine,
+    generatedLevel,
+  } = resolveRoutineByLevelId(
+    routeLevelId,
+    generatedLevels,
+  );
+
+  const missionSequence = generatedLevel?.sequence ?? 1;
+  const missionName = generatedLevel?.name ?? "El despertar";
+  const locationName =
+    generatedLevel?.locationName ?? "Ruinas de la Forja";
+  const enemyName =
+    generatedLevel?.enemyName ?? "Centinela de Ceniza";
+  const enemyTitle =
+    generatedLevel?.enemyTitle ?? "Guardián de la rutina";
+  const experienceReward =
+    generatedLevel?.experienceReward ?? 100;
+  const coinReward = generatedLevel?.coinReward ?? 25;
 
   const {
     videoRef,
@@ -147,24 +204,31 @@ function BattlePage() {
     remainingSeconds,
 
     currentStepProgress,
-    routineProgress,
+    mandatoryRoutineProgress,
+    mandatoryRoutineComplete,
 
     currentMet,
 
     isComplete: battleWon,
+    isAwaitingCalorieCheck,
+    isOverload,
+    overloadRound,
 
     registerRepetition: registerRoutineRepetition,
 
     registerCombination: registerRoutineCombination,
 
+    resolveCalorieGoal,
     skipCurrentStep,
     resetRoutine,
   } = useRoutineEngine({
-    routine: ashAssaultRoutine,
+    routine,
 
     isRunning: sessionStatus === "active",
 
     onStepComplete: handleRoutineStepComplete,
+
+    onOverloadRoundStart: handleOverloadRoundStart,
 
     onComplete: handleRoutineComplete,
   });
@@ -183,6 +247,7 @@ function BattlePage() {
       cameraStatus === "active" &&
       sessionStatus === "active" &&
       currentStep?.kind === "exercise" &&
+      !isAwaitingCalorieCheck &&
       !battleWon,
 
     currentExercise,
@@ -228,13 +293,37 @@ function BattlePage() {
 
   const calorieGoal = Math.max(
     profile.minimumCalorieGoal || 180,
-    ashAssaultRoutine.minimumCalories,
+    routine.minimumCalories,
   );
+
+  /*
+   * Mantiene sincronizado el nivel abierto desde la URL.
+   * No depende del arreglo de niveles para evitar que cambie
+   * el nivel activo al generar el siguiente después de la victoria.
+   */
+  useEffect(() => {
+    setActiveGeneratedLevel(
+      routeLevelId && routeLevelId !== STATIC_LEVEL_ID
+        ? routeLevelId
+        : null,
+    );
+  }, [routeLevelId, setActiveGeneratedLevel]);
 
   const calorieProgress = Math.min(
     (estimatedCalories / calorieGoal) * 100,
     100,
   );
+
+  /*
+   * La rutina principal ocupa el 95% del combate.
+   * La sobrecarga conserva al enemigo con vida hasta
+   * que la meta calórica realmente sea alcanzada.
+   */
+  const routineProgress = battleWon
+    ? 100
+    : mandatoryRoutineComplete
+      ? Math.min(99, 95 + calorieProgress * 0.04)
+      : mandatoryRoutineProgress * 0.95;
 
   const routineProgressRounded = Math.round(routineProgress);
 
@@ -245,12 +334,17 @@ function BattlePage() {
 
   const enemyHealthPercentage = (enemyHealth / MAX_ENEMY_HEALTH) * 100;
 
-  const currentStepTitle =
-    currentStep?.kind === "rest"
+  const currentStepTitle = isAwaitingCalorieCheck
+    ? "Evaluando objetivo calórico"
+    : currentStep?.kind === "rest"
       ? "Descanso"
       : (currentExercise?.name ?? "Rutina completada");
 
   const currentStepProgressText = (() => {
+    if (isAwaitingCalorieCheck) {
+      return `${estimatedCalories.toFixed(1)} / ${calorieGoal} kcal`;
+    }
+
     if (currentStep?.kind === "rest") {
       return `${currentValue} / ${currentTarget} segundos`;
     }
@@ -273,6 +367,37 @@ function BattlePage() {
 
     return `${currentValue} / ${currentTarget} ${unitLabels[countUnit]}`;
   })();
+
+  const displayedStepProgress = isAwaitingCalorieCheck
+    ? calorieProgress
+    : currentStepProgress;
+
+  /*
+   * Al terminar la rutina principal o una ronda de
+   * sobrecarga, esperamos un instante para estabilizar
+   * el cálculo y decidimos si hay victoria o una ronda extra.
+   */
+  useEffect(() => {
+    if (!isAwaitingCalorieCheck || battleWon) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      resolveCalorieGoal(
+        estimatedCalories >= calorieGoal,
+      );
+    }, 800);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    battleWon,
+    calorieGoal,
+    estimatedCalories,
+    isAwaitingCalorieCheck,
+    resolveCalorieGoal,
+  ]);
 
   /*
    * Temporizador inicial para permitir
@@ -413,6 +538,7 @@ function BattlePage() {
   useEffect(() => {
     if (
       sessionStatus !== "active" ||
+      isAwaitingCalorieCheck ||
       cameraStatus !== "active" ||
       bodyVisible ||
       document.hidden
@@ -440,7 +566,13 @@ function BattlePage() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [bodyVisible, cameraStatus, resetMovementDetectors, sessionStatus]);
+  }, [
+    bodyVisible,
+    cameraStatus,
+    isAwaitingCalorieCheck,
+    resetMovementDetectors,
+    sessionStatus,
+  ]);
 
   /*
    * Pausa al cambiar de pestaña o
@@ -593,6 +725,17 @@ function BattlePage() {
     }
 
     if (sessionStatus === "active") {
+      if (isAwaitingCalorieCheck) {
+        return {
+          title: "Evaluando la Forja",
+          message:
+            estimatedCalories >= calorieGoal
+              ? "Meta alcanzada. Confirmando la victoria."
+              : "La meta aún no se alcanza. Preparando sobrecarga automática.",
+          tone: "ready",
+        };
+      }
+
       if (currentStep?.kind === "rest") {
         return {
           title: "Recuperación",
@@ -659,7 +802,11 @@ function BattlePage() {
   }
 
   function handleManualPause() {
-    if (sessionStatus !== "active" || battleWon) {
+    if (
+      sessionStatus !== "active" ||
+      isAwaitingCalorieCheck ||
+      battleWon
+    ) {
       return;
     }
 
@@ -746,6 +893,20 @@ function BattlePage() {
     switchCamera();
   }
 
+  function handleOverloadRoundStart(round: number) {
+    setFeedback({
+      label: `Sobrecarga ${round}`,
+
+      message:
+        "La meta calórica todavía no se alcanza. Completa esta ronda adicional con movimientos válidos.",
+
+      tone: "excellent",
+    });
+
+    setDamageAmount(4);
+    setImpactKey((current) => current + 1);
+  }
+
   /*
    * Se ejecuta al completar un ejercicio,
    * no al terminar toda la rutina.
@@ -758,9 +919,15 @@ function BattlePage() {
     }
 
     setFeedback({
-      label: "Ejercicio completado",
+      label:
+        step.stage === "overload"
+          ? "Ejercicio de sobrecarga completado"
+          : "Ejercicio completado",
 
-      message: `${step.exercise.name} superado. Prepárate para el siguiente desafío.`,
+      message:
+        step.stage === "overload"
+          ? `${step.exercise.name} superado. Continúa hasta alcanzar ${calorieGoal} kcal.`
+          : `${step.exercise.name} superado. Prepárate para el siguiente desafío.`,
 
       tone: "excellent",
     });
@@ -780,18 +947,64 @@ function BattlePage() {
     resetMovementDetectors();
 
     const isFirstCompletion = completeMission({
-      missionId: "awakening",
+      missionId: resolvedLevelId,
 
       validRepetitions: validRepetitionsRef.current,
 
-      experienceReward: 100,
+      experienceReward,
 
-      coinReward: 25,
+      coinReward,
 
-      unlockMissionId: "stone-path",
+      /*
+       * Los niveles procedurales administran su desbloqueo en
+       * generatedLevelStore. Conservamos este campo para mantener
+       * compatibilidad con playerStore.
+       */
+      unlockMissionId: resolvedLevelId,
     });
 
+    if (generatedLevel) {
+      completeGeneratedLevel(generatedLevel.id);
+    }
+
     setEarnedFirstCompletionRewards(isFirstCompletion);
+    setIsPreparingNextLevel(true);
+    setNextLevelId(null);
+    setNextLevelSource(null);
+    setNextLevelGenerationError(null);
+
+    void ensureNextLevel({
+      afterSequence: missionSequence,
+      difficulty: profile.fitnessLevel,
+      minimumCalories: profile.minimumCalorieGoal,
+      preferAI: true,
+      weightKg: profile.weightKg,
+      heightCm: profile.heightCm,
+      preferredImpact: profile.preferredImpact,
+      boxingStance: profile.boxingStance,
+      performance: {
+        activeSeconds,
+        estimatedCalories,
+        validMovements: validRepetitionsRef.current,
+        invalidMovements: invalidRepetitions,
+        bestCombo,
+      },
+    })
+      .then((nextLevel) => {
+        setActiveGeneratedLevel(nextLevel.id);
+        setNextLevelId(nextLevel.id);
+        setNextLevelSource(nextLevel.source);
+      })
+      .catch((error: unknown) => {
+        setNextLevelGenerationError(
+          error instanceof Error
+            ? error.message
+            : "No fue posible preparar el siguiente nivel.",
+        );
+      })
+      .finally(() => {
+        setIsPreparingNextLevel(false);
+      });
   }
 
   /*
@@ -907,6 +1120,11 @@ function BattlePage() {
 
     setEarnedFirstCompletionRewards(false);
 
+    setNextLevelId(null);
+    setNextLevelSource(null);
+    setIsPreparingNextLevel(false);
+    setNextLevelGenerationError(null);
+
     setPauseReason(null);
 
     setSessionStatus("preparing");
@@ -931,7 +1149,7 @@ function BattlePage() {
         <header className="battle-header">
           <Link
             className="battle-back"
-            to="/mission/awakening"
+            to={`/mission/${resolvedLevelId}`}
             aria-label="Abandonar rutina"
           >
             <ArrowLeft size={21} />
@@ -943,9 +1161,15 @@ function BattlePage() {
             </div>
 
             <div>
-              <span>RUTINA 01</span>
+              <span>
+                {isOverload
+                  ? `SOBRECARGA ${overloadRound}`
+                  : `NIVEL ${missionSequence
+                      .toString()
+                      .padStart(2, "0")}`}
+              </span>
 
-              <strong>{ashAssaultRoutine.name}</strong>
+              <strong>{missionName}</strong>
             </div>
           </div>
 
@@ -965,7 +1189,7 @@ function BattlePage() {
             <div>
               <span>GUARDIÁN</span>
 
-              <h1>Centinela de Ceniza</h1>
+              <h1>{enemyName}</h1>
             </div>
           </div>
 
@@ -1286,7 +1510,7 @@ function BattlePage() {
               <div>
                 <span>ZONA DE COMBATE</span>
 
-                <h2>Ruinas de la Forja</h2>
+                <h2>{locationName}</h2>
               </div>
 
               <Swords size={24} />
@@ -1319,9 +1543,9 @@ function BattlePage() {
               </div>
 
               <div className="enemy-stage__name">
-                <span>GUARDIÁN DE LA RUTINA</span>
+                <span>{enemyTitle.toUpperCase()}</span>
 
-                <strong>Centinela de Ceniza</strong>
+                <strong>{enemyName}</strong>
               </div>
             </div>
 
@@ -1339,8 +1563,12 @@ function BattlePage() {
                 <span>RONDA ACTUAL</span>
 
                 <strong>
-                  {currentRound}
-                  <small>/{totalRounds}</small>
+                  {isOverload
+                    ? `Extra ${overloadRound}`
+                    : currentRound}
+                  {!isOverload && (
+                    <small>/{totalRounds}</small>
+                  )}
                 </strong>
               </div>
 
@@ -1365,24 +1593,52 @@ function BattlePage() {
               <div
                 className="battle-progress__value"
                 style={{
-                  width: `${currentStepProgress}%`,
+                  width: `${displayedStepProgress}%`,
                 }}
               />
             </div>
           </div>
 
+          {(isOverload || isAwaitingCalorieCheck) && (
+            <div className="overload-status">
+              <Flame size={22} />
+
+              <div>
+                <span>
+                  {isAwaitingCalorieCheck
+                    ? "EVALUANDO META"
+                    : `SOBRECARGA AUTOMÁTICA · RONDA ${overloadRound}`}
+                </span>
+
+                <strong>
+                  {isAwaitingCalorieCheck
+                    ? estimatedCalories >= calorieGoal
+                      ? "Objetivo alcanzado. Confirmando victoria…"
+                      : "Preparando una ronda adicional…"
+                    : `Continúa hasta alcanzar al menos ${calorieGoal} kcal`}
+                </strong>
+              </div>
+            </div>
+          )}
+
           <div className="routine-current-status">
             <div>
               <span>BLOQUE ACTUAL</span>
 
-              <strong>{currentBlockName || "Rutina completada"}</strong>
+              <strong>
+                {isAwaitingCalorieCheck
+                  ? "Evaluando objetivo calórico"
+                  : currentBlockName || "Rutina completada"}
+              </strong>
             </div>
 
             <div>
               <span>RONDA</span>
 
               <strong>
-                {currentRound} / {totalRounds}
+                {isOverload
+                  ? `Extra ${overloadRound}`
+                  : `${currentRound} / ${totalRounds}`}
               </strong>
             </div>
 
@@ -1390,16 +1646,24 @@ function BattlePage() {
               <span>EJERCICIO ACTUAL</span>
 
               <strong>
-                {currentStep?.kind === "rest"
-                  ? "Descanso"
-                  : (currentExercise?.name ?? "--")}
+                {isAwaitingCalorieCheck
+                  ? "Evaluando calorías"
+                  : currentStep?.kind === "rest"
+                    ? "Descanso"
+                    : (currentExercise?.name ?? "--")}
               </strong>
             </div>
 
             <div>
               <span>SIGUIENTE</span>
 
-              <strong>{nextExercise?.name ?? "Fin de la misión"}</strong>
+              <strong>
+                {isAwaitingCalorieCheck
+                  ? estimatedCalories >= calorieGoal
+                    ? "Victoria"
+                    : "Sobrecarga automática"
+                  : nextExercise?.name ?? "Evaluar meta calórica"}
+              </strong>
             </div>
           </div>
 
@@ -1503,22 +1767,28 @@ function BattlePage() {
                 <span className="battle-session-message__dot" />
 
                 <span>
-                  {currentStep?.kind === "rest"
-                    ? `Descanso: ${remainingSeconds ?? 0} segundos`
-                    : movementActive
-                      ? `Movimiento activo: ${currentExercise?.name ?? "--"}`
-                      : `Esperando movimiento válido: ${currentExercise?.name ?? "--"}`}
+                  {isAwaitingCalorieCheck
+                    ? estimatedCalories >= calorieGoal
+                      ? "Meta alcanzada: confirmando victoria"
+                      : "Meta pendiente: preparando sobrecarga automática"
+                    : currentStep?.kind === "rest"
+                      ? `Descanso: ${remainingSeconds ?? 0} segundos`
+                      : movementActive
+                        ? `Movimiento activo: ${currentExercise?.name ?? "--"}`
+                        : `Esperando movimiento válido: ${currentExercise?.name ?? "--"}`}
                 </span>
               </div>
 
-              <button
-                className="battle-session-pause-button"
-                onClick={handleManualPause}
-                type="button"
-              >
-                <Pause size={17} />
-                Pausar
-              </button>
+              {!isAwaitingCalorieCheck && (
+                <button
+                  className="battle-session-pause-button"
+                  onClick={handleManualPause}
+                  type="button"
+                >
+                  <Pause size={17} />
+                  Pausar
+                </button>
+              )}
             </div>
           )}
 
@@ -1548,7 +1818,9 @@ function BattlePage() {
             </div>
           )}
 
-          {import.meta.env.DEV && sessionStatus === "active" && (
+          {import.meta.env.DEV &&
+            sessionStatus === "active" &&
+            !isAwaitingCalorieCheck && (
             <div className="battle-actions battle-actions--development">
               {currentStep?.kind === "exercise" && currentExercise && (
                 <button
@@ -1596,8 +1868,9 @@ function BattlePage() {
           )}
 
           <p className="battle-controls__note">
-            Las calorías y el tiempo activo solamente avanzan cuando se detecta
-            movimiento real en los ejercicios compatibles.
+            La rutina principal se completa por movimientos válidos. Si la meta
+            calórica queda pendiente, la Forja añade rondas de sobrecarga
+            automáticamente hasta alcanzarla.
           </p>
         </section>
       </div>
@@ -1618,11 +1891,11 @@ function BattlePage() {
 
             <span className="victory-card__eyebrow">RUTINA COMPLETADA</span>
 
-            <h2 id="victory-title">Asalto superado</h2>
+            <h2 id="victory-title">{missionName} superado</h2>
 
             <p>
-              Has completado todos los bloques de Asalto de las Cenizas y
-              derrotado al guardián.
+              Has completado todos los bloques de {missionName}, alcanzaste
+              la meta calórica y derrotaste a {enemyName}.
             </p>
 
             <div className="victory-results">
@@ -1668,12 +1941,12 @@ function BattlePage() {
                 <>
                   <span>
                     <Sparkles size={17} />
-                    +100 XP
+                    +{experienceReward} XP
                   </span>
 
                   <span>
                     <Flame size={17} />
-                    +25 monedas
+                    +{coinReward} monedas
                   </span>
                 </>
               ) : (
@@ -1701,18 +1974,46 @@ function BattlePage() {
                 Repetir
               </button>
 
-              <Link
-                className="victory-button victory-button--primary"
-                to="/map"
-              >
-                Volver al mapa
-                <Swords size={18} />
-              </Link>
+              {nextLevelId ? (
+                <Link
+                  className="victory-button victory-button--primary"
+                  onClick={() => {
+                    setActiveGeneratedLevel(nextLevelId);
+                  }}
+                  to={`/mission/${nextLevelId}`}
+                >
+                  Siguiente nivel
+                  <Swords size={18} />
+                </Link>
+              ) : isPreparingNextLevel ? (
+                <button
+                  className="victory-button victory-button--primary"
+                  disabled
+                  type="button"
+                >
+                  <LoaderCircle className="camera-loading-icon" size={18} />
+                  Forjando nivel con IA…
+                </button>
+              ) : (
+                <Link
+                  className="victory-button victory-button--primary"
+                  to="/map"
+                >
+                  Volver al mapa
+                  <Swords size={18} />
+                </Link>
+              )}
             </div>
 
             <p className="victory-card__note">
-              El gasto calórico es una estimación basada en peso, tiempo activo
-              e intensidad.
+              {isPreparingNextLevel
+                ? "La IA está diseñando una rutina nueva y validada con los detectores disponibles."
+                : nextLevelSource === "ai"
+                  ? "El siguiente nivel fue generado con IA y validado por las reglas de La Forja."
+                  : nextLevelSource === "procedural"
+                    ? "El servicio de IA no estuvo disponible; se creó un nivel procedural de respaldo."
+                    : nextLevelGenerationError ??
+                      `La victoria se confirmó al superar ${calorieGoal} kcal estimadas.`}
             </p>
           </div>
         </section>

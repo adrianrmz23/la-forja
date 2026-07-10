@@ -1,58 +1,59 @@
+import { useEffect } from "react";
 import {
   ArrowLeft,
   Check,
   Flame,
   Footprints,
+  Gauge,
   LockKeyhole,
   Shield,
-  Skull,
+  Sparkles,
   Swords,
 } from "lucide-react";
 import { Link } from "react-router";
-import { usePlayerStore } from "../stores/playerStore";
-import { getLevelProgress } from "../utils/progression";
+import { useGeneratedLevelStore } from "../stores/generatedLevelStore.ts";
+import { usePlayerStore } from "../stores/playerStore.ts";
+import { useProfileStore } from "../stores/profileStore.ts";
+import type {
+  GeneratedLevel,
+  LevelTheme,
+} from "../types/generatedLevel.ts";
+import { getLevelProgress } from "../utils/progression.ts";
 
-const missions = [
-  {
-    id: "awakening",
-    number: "01",
-    name: "El despertar",
-    description:
-      "Enciende nuevamente la Forja y demuestra que todavía tienes fuerza para combatir.",
-    objective: "10 sentadillas",
-    reward: "100 XP",
-    route: "/mission/awakening",
-    implemented: true,
-    icon: Flame,
-  },
-  {
-    id: "stone-path",
-    number: "02",
-    name: "Camino de piedra",
-    description:
-      "Cruza las ruinas mientras las criaturas de ceniza intentan detener tu avance.",
-    objective: "15 sentadillas",
-    reward: "150 XP",
-    route: "/mission/stone-path",
-    implemented: false,
-    icon: Footprints,
-  },
-  {
-    id: "stone-guardian",
-    number: "03",
-    name: "El guardián de piedra",
-    description:
-      "Enfrenta a Gorak y recupera el primer territorio dominado por la oscuridad.",
-    objective: "Batalla de jefe",
-    reward: "300 XP",
-    route: "/mission/stone-guardian",
-    implemented: false,
-    icon: Skull,
-  },
-];
+const STATIC_LEVEL_ID = "awakening";
+
+const themeIcons: Record<LevelTheme, typeof Flame> = {
+  balanced: Flame,
+  strength: Shield,
+  cardio: Footprints,
+  boxing: Swords,
+};
+
+function getGeneratedLevelStatus(
+  level: GeneratedLevel,
+  levels: GeneratedLevel[],
+  staticLevelCompleted: boolean,
+) {
+  const previousLevelCompleted =
+    level.sequence === 2
+      ? staticLevelCompleted
+      : Boolean(
+          levels.find(
+            (candidate) =>
+              candidate.sequence === level.sequence - 1,
+          )?.completedAt,
+        );
+
+  return {
+    isCompleted: Boolean(level.completedAt),
+    isLocked: !previousLevelCompleted,
+  };
+}
 
 function MapPage() {
-  const experience = usePlayerStore((state) => state.experience);
+  const experience = usePlayerStore(
+    (state) => state.experience,
+  );
 
   const completedMissionIds = usePlayerStore(
     (state) => state.completedMissionIds,
@@ -62,14 +63,88 @@ function MapPage() {
     (state) => state.unlockedMissionIds,
   );
 
+  const profile = useProfileStore(
+    (state) => state.profile,
+  );
+
+  const generatedLevels = useGeneratedLevelStore(
+    (state) => state.levels,
+  );
+
+  const setActiveLevel = useGeneratedLevelStore(
+    (state) => state.setActiveLevel,
+  );
+
+  const ensureNextLevel = useGeneratedLevelStore(
+    (state) => state.ensureNextLevel,
+  );
+
   const levelProgress = getLevelProgress(experience);
 
-  const completedTerritoryMissions = missions.filter((mission) =>
-    completedMissionIds.includes(mission.id),
-  ).length;
+  const staticLevelCompleted =
+    completedMissionIds.includes(STATIC_LEVEL_ID);
 
-  const territoryProgress =
-    (completedTerritoryMissions / missions.length) * 100;
+  const staticLevelUnlocked =
+    unlockedMissionIds.includes(STATIC_LEVEL_ID);
+
+  const orderedGeneratedLevels = [...generatedLevels].sort(
+    (first, second) => first.sequence - second.sequence,
+  );
+
+  /*
+   * Respaldo de seguridad: si la misión inicial ya se completó,
+   * el mapa garantiza que exista al menos el nivel procedural 02.
+   */
+  useEffect(() => {
+    if (
+      !staticLevelCompleted ||
+      generatedLevels.some(
+        (level) => level.sequence === 2,
+      )
+    ) {
+      return;
+    }
+
+    void ensureNextLevel({
+      afterSequence: 1,
+      difficulty: profile.fitnessLevel,
+      minimumCalories: profile.minimumCalorieGoal,
+      preferAI: true,
+      weightKg: profile.weightKg,
+      heightCm: profile.heightCm,
+      preferredImpact: profile.preferredImpact,
+      boxingStance: profile.boxingStance,
+    }).catch(() => {
+      /* El store ya intenta el respaldo procedural. */
+    });
+  }, [
+    ensureNextLevel,
+    generatedLevels,
+    profile.boxingStance,
+    profile.fitnessLevel,
+    profile.heightCm,
+    profile.minimumCalorieGoal,
+    profile.preferredImpact,
+    profile.weightKg,
+    staticLevelCompleted,
+  ]);
+
+  const completedGeneratedLevels =
+    orderedGeneratedLevels.filter(
+      (level) => Boolean(level.completedAt),
+    ).length;
+
+  const discoveredLevels =
+    1 + orderedGeneratedLevels.length;
+
+  const completedLevels =
+    (staticLevelCompleted ? 1 : 0) +
+    completedGeneratedLevels;
+
+  const territoryProgress = Math.min(
+    (completedLevels / discoveredLevels) * 100,
+    100,
+  );
 
   return (
     <main className="map-page">
@@ -92,7 +167,7 @@ function MapPage() {
 
             <div>
               <span>LA FORJA</span>
-              <strong>Mapa de campaña</strong>
+              <strong>Mapa infinito</strong>
             </div>
           </div>
 
@@ -104,23 +179,24 @@ function MapPage() {
 
         <section className="map-introduction">
           <span className="map-eyebrow">
-            <Shield size={16} />
-            Primer territorio
+            <Sparkles size={16} />
+            Campaña procedural
           </span>
 
-          <h1>Valle de las Cenizas</h1>
+          <h1>El Camino Infinito</h1>
 
           <p>
-            El fuego de esta región se está extinguiendo. Completa las pruebas,
-            derrota al guardián y devuelve la energía a la Forja.
+            Cada guardián derrotado abre una nueva región de la Forja. Los
+            niveles cambian sus bloques, objetivos, enemigos y recompensas para
+            mantener la campaña en constante evolución.
           </p>
 
           <div className="territory-progress">
             <div className="territory-progress__labels">
-              <span>Progreso del territorio</span>
+              <span>Progreso de niveles descubiertos</span>
 
               <strong>
-                {completedTerritoryMissions} / {missions.length} misiones
+                {completedLevels} / {discoveredLevels} niveles
               </strong>
             </div>
 
@@ -134,24 +210,109 @@ function MapPage() {
         </section>
 
         <section className="mission-list">
-          {missions.map((mission) => {
-            const MissionIcon = mission.icon;
+          <article
+            className={`mission-card ${
+              !staticLevelUnlocked ? "mission-card--locked" : ""
+            } ${
+              staticLevelCompleted ? "mission-card--completed" : ""
+            }`}
+          >
+            <div className="mission-card__number">01</div>
 
-            const isCompleted = completedMissionIds.includes(mission.id);
+            <div className="mission-card__icon">
+              <Flame size={30} />
+            </div>
 
-            const isLocked = !unlockedMissionIds.includes(mission.id);
+            <div className="mission-card__content">
+              <div className="mission-card__heading">
+                <div>
+                  <span>
+                    {staticLevelCompleted
+                      ? "Misión completada"
+                      : staticLevelUnlocked
+                        ? "Misión disponible"
+                        : "Misión bloqueada"}
+                  </span>
+
+                  <h2>El despertar</h2>
+                </div>
+
+                {staticLevelCompleted ? (
+                  <Check size={21} />
+                ) : staticLevelUnlocked ? (
+                  <Swords size={21} />
+                ) : (
+                  <LockKeyhole size={21} />
+                )}
+              </div>
+
+              <p>
+                Enciende nuevamente la Forja y completa la primera rutina para
+                abrir el camino de los niveles procedurales.
+              </p>
+
+              <div className="mission-card__details">
+                <span>
+                  <Gauge size={16} />
+                  Rutina completa · 180+ kcal
+                </span>
+
+                <span>
+                  <Flame size={16} />
+                  100 XP
+                </span>
+              </div>
+            </div>
+
+            {!staticLevelUnlocked ? (
+              <button
+                className="mission-button mission-button--locked"
+                disabled
+                type="button"
+              >
+                <LockKeyhole size={18} />
+                Bloqueada
+              </button>
+            ) : (
+              <Link
+                className={`mission-button ${
+                  staticLevelCompleted
+                    ? "mission-button--completed"
+                    : ""
+                }`}
+                onClick={() => setActiveLevel(null)}
+                to="/mission/awakening"
+              >
+                {staticLevelCompleted
+                  ? "Repetir misión"
+                  : "Iniciar misión"}
+                <Swords size={18} />
+              </Link>
+            )}
+          </article>
+
+          {orderedGeneratedLevels.map((level) => {
+            const LevelIcon = themeIcons[level.theme];
+            const { isCompleted, isLocked } =
+              getGeneratedLevelStatus(
+                level,
+                orderedGeneratedLevels,
+                staticLevelCompleted,
+              );
 
             return (
               <article
                 className={`mission-card ${
                   isLocked ? "mission-card--locked" : ""
                 } ${isCompleted ? "mission-card--completed" : ""}`}
-                key={mission.id}
+                key={level.id}
               >
-                <div className="mission-card__number">{mission.number}</div>
+                <div className="mission-card__number">
+                  {level.sequence.toString().padStart(2, "0")}
+                </div>
 
                 <div className="mission-card__icon">
-                  <MissionIcon size={30} />
+                  <LevelIcon size={30} />
                 </div>
 
                 <div className="mission-card__content">
@@ -159,13 +320,15 @@ function MapPage() {
                     <div>
                       <span>
                         {isCompleted
-                          ? "Misión completada"
+                          ? "Nivel completado"
                           : isLocked
-                            ? "Misión bloqueada"
-                            : "Misión disponible"}
+                            ? "Nivel bloqueado"
+                            : level.source === "ai"
+                              ? "Nivel generado con IA"
+                              : "Nivel procedural disponible"}
                       </span>
 
-                      <h2>{mission.name}</h2>
+                      <h2>{level.name}</h2>
                     </div>
 
                     {isCompleted ? (
@@ -177,31 +340,23 @@ function MapPage() {
                     )}
                   </div>
 
-                  <p>{mission.description}</p>
+                  <p>{level.description}</p>
 
                   <div className="mission-card__details">
                     <span>
-                      <Swords size={16} />
-                      {mission.objective}
+                      <Gauge size={16} />
+                      {level.routine.blocks.length} bloques ·{" "}
+                      {level.routine.minimumCalories}+ kcal
                     </span>
 
                     <span>
                       <Flame size={16} />
-                      {mission.reward}
+                      {level.experienceReward} XP
                     </span>
                   </div>
                 </div>
 
-                {isCompleted ? (
-                  <button
-                    className="mission-button mission-button--completed"
-                    disabled
-                    type="button"
-                  >
-                    <Check size={18} />
-                    Completada
-                  </button>
-                ) : isLocked ? (
+                {isLocked ? (
                   <button
                     className="mission-button mission-button--locked"
                     disabled
@@ -210,20 +365,21 @@ function MapPage() {
                     <LockKeyhole size={18} />
                     Bloqueada
                   </button>
-                ) : mission.implemented ? (
-                  <Link className="mission-button" to={mission.route}>
-                    Iniciar misión
+                ) : (
+                  <Link
+                    className={`mission-button ${
+                      isCompleted
+                        ? "mission-button--completed"
+                        : ""
+                    }`}
+                    onClick={() => setActiveLevel(level.id)}
+                    to={`/mission/${level.id}`}
+                  >
+                    {isCompleted
+                      ? "Repetir nivel"
+                      : "Preparar nivel"}
                     <Swords size={18} />
                   </Link>
-                ) : (
-                  <button
-                    className="mission-button mission-button--coming"
-                    disabled
-                    type="button"
-                  >
-                    Próximamente
-                    <Flame size={18} />
-                  </button>
                 )}
               </article>
             );

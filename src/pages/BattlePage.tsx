@@ -373,6 +373,102 @@ function BattlePage() {
     : currentStepProgress;
 
   /*
+   * En pantallas móviles, cuando la cámara está activa,
+   * la batalla se convierte en una interfaz de entrenamiento
+   * sin desplazamiento vertical.
+   */
+  const mobileTrainingMode =
+    cameraStatus === "active" &&
+    sessionStatus !== "finished" &&
+    !battleWon;
+
+  const mobileStageTitle = (() => {
+    if (sessionStatus === "paused") {
+      return "Rutina pausada";
+    }
+
+    if (sessionStatus === "positioning") {
+      return "Colócate en posición";
+    }
+
+    if (sessionStatus === "countdown") {
+      return "Prepárate";
+    }
+
+    if (isAwaitingCalorieCheck) {
+      return "Evaluando meta calórica";
+    }
+
+    if (currentStep?.kind === "rest") {
+      return "Descanso";
+    }
+
+    return currentExercise?.name ?? "Rutina activa";
+  })();
+
+  const mobileStageProgress = (() => {
+    if (sessionStatus === "positioning") {
+      return positioningSeconds > 0
+        ? `${positioningSeconds}s para colocarte`
+        : playerReady
+          ? "Posición confirmada"
+          : "Esperando cuerpo completo";
+    }
+
+    if (sessionStatus === "countdown") {
+      return `Comienza en ${countdown}`;
+    }
+
+    if (sessionStatus === "paused") {
+      return "Progreso conservado";
+    }
+
+    return currentStepProgressText;
+  })();
+
+  const mobileInstruction = (() => {
+    if (sessionStatus === "paused") {
+      return pauseReason === "body_lost"
+        ? "Regresa completamente al encuadre para continuar."
+        : "Reanuda cuando estés preparado para seguir entrenando.";
+    }
+
+    if (sessionStatus === "positioning") {
+      return playerReady
+        ? "Mantén esta posición. La rutina comenzará automáticamente."
+        : "Aléjate hasta que se vean tu cabeza, cadera, rodillas y pies.";
+    }
+
+    if (sessionStatus === "countdown") {
+      return "Mantente completamente de pie dentro del encuadre.";
+    }
+
+    if (isAwaitingCalorieCheck) {
+      return estimatedCalories >= calorieGoal
+        ? "Objetivo alcanzado. Confirmando la victoria."
+        : "La Forja está preparando una ronda adicional.";
+    }
+
+    if (currentStep?.kind === "rest") {
+      return `Recupera el aliento. Después continúa con ${nextExercise?.name ?? "el siguiente ejercicio"}.`;
+    }
+
+    return technique.instruction ||
+      currentExercise?.instructions ||
+      "Sigue las indicaciones del ejercicio actual.";
+  })();
+
+  const mobileNextLabel = isAwaitingCalorieCheck
+    ? estimatedCalories >= calorieGoal
+      ? "Victoria"
+      : "Sobrecarga automática"
+    : nextExercise?.name ?? "Evaluar meta calórica";
+
+  const mobileRoundLabel = isOverload
+    ? `Extra ${overloadRound}`
+    : `${currentRound}/${totalRounds}`;
+
+  /*
    * Al terminar la rutina principal o una ronda de
    * sobrecarga, esperamos un instante para estabilizar
    * el cálculo y decidimos si hay victoria o una ronda extra.
@@ -977,7 +1073,7 @@ function BattlePage() {
       afterSequence: missionSequence,
       difficulty: profile.fitnessLevel,
       minimumCalories: profile.minimumCalorieGoal,
-      preferAI: true,
+      preferAI: false,
       weightKg: profile.weightKg,
       heightCm: profile.heightCm,
       preferredImpact: profile.preferredImpact,
@@ -1141,7 +1237,13 @@ function BattlePage() {
   }
 
   return (
-    <main className="battle-page">
+    <main
+      className={`battle-page ${
+        mobileTrainingMode
+          ? "battle-page--mobile-training"
+          : ""
+      }`}
+    >
       <div className="battle-page__glow battle-page__glow--left" />
       <div className="battle-page__glow battle-page__glow--right" />
 
@@ -1249,6 +1351,137 @@ function BattlePage() {
                   facingMode === "user" ? "pose-canvas--mirrored" : ""
                 }`}
               />
+
+              {mobileTrainingMode && (
+                <div className="mobile-training-hud">
+                  <div className="mobile-training-hud__top">
+                    <div className="mobile-training-enemy">
+                      <div className="mobile-training-enemy__heading">
+                        <div>
+                          <span>{enemyTitle}</span>
+                          <strong>{enemyName}</strong>
+                        </div>
+
+                        <b>
+                          {enemyHealth}/{MAX_ENEMY_HEALTH} HP
+                        </b>
+                      </div>
+
+                      <div className="mobile-training-enemy__bar">
+                        <div
+                          className="mobile-training-enemy__value"
+                          style={{
+                            width: `${enemyHealthPercentage}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {(sessionStatus !== "active" ||
+                    !playerReady ||
+                    feedback.tone === "error") && (
+                    <div
+                      className={`mobile-training-guidance mobile-training-guidance--${poseGuidance.tone}`}
+                    >
+                      {poseGuidance.tone === "loading" ? (
+                        <LoaderCircle
+                          className="camera-loading-icon"
+                          size={20}
+                        />
+                      ) : poseGuidance.tone === "error" ? (
+                        <AlertTriangle size={20} />
+                      ) : poseGuidance.tone === "ready" ? (
+                        <PersonStanding size={20} />
+                      ) : (
+                        <ScanLine size={20} />
+                      )}
+
+                      <div>
+                        <strong>{poseGuidance.title}</strong>
+                        <span>{poseGuidance.message}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mobile-training-hud__bottom">
+                    <div className="mobile-training-metrics">
+                      <div>
+                        <Clock3 size={15} />
+                        <strong>{formatWorkoutTime(activeSeconds)}</strong>
+                      </div>
+
+                      <div>
+                        <Flame size={15} />
+                        <strong>{estimatedCalories.toFixed(1)} kcal</strong>
+                      </div>
+
+                      <div>
+                        <Target size={15} />
+                        <strong>Ronda {mobileRoundLabel}</strong>
+                      </div>
+                    </div>
+
+                    <div className="mobile-training-current">
+                      <div className="mobile-training-current__heading">
+                        <div>
+                          <span>
+                            {isOverload
+                              ? `SOBRECARGA ${overloadRound}`
+                              : currentBlockName || "ENTRENAMIENTO"}
+                          </span>
+
+                          <h2>{mobileStageTitle}</h2>
+                        </div>
+
+                        <strong>{mobileStageProgress}</strong>
+                      </div>
+
+                      <div className="mobile-training-current__bar">
+                        <div
+                          className="mobile-training-current__value"
+                          style={{
+                            width: `${displayedStepProgress}%`,
+                          }}
+                        />
+                      </div>
+
+                      <p>{mobileInstruction}</p>
+
+                      <div className="mobile-training-current__footer">
+                        <span>
+                          Siguiente: <strong>{mobileNextLabel}</strong>
+                        </span>
+
+                        {sessionStatus === "active" &&
+                          !isAwaitingCalorieCheck && (
+                            <button
+                              className="mobile-training-action"
+                              onClick={handleManualPause}
+                              type="button"
+                            >
+                              <Pause size={16} />
+                              Pausar
+                            </button>
+                          )}
+
+                        {sessionStatus === "paused" &&
+                          pauseReason !== "body_lost" && (
+                            <button
+                              className="mobile-training-action"
+                              onClick={handleResumeRoutine}
+                              disabled={!playerReady}
+                              type="button"
+                            >
+                              <Play size={16} fill="currentColor" />
+                              Reanudar
+                            </button>
+                          )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {sessionStatus === "paused" && (
                 <div className="battle-pause-overlay">
@@ -1992,7 +2225,7 @@ function BattlePage() {
                   type="button"
                 >
                   <LoaderCircle className="camera-loading-icon" size={18} />
-                  Forjando nivel con IA…
+                  Forjando siguiente nivel…
                 </button>
               ) : (
                 <Link
@@ -2007,11 +2240,11 @@ function BattlePage() {
 
             <p className="victory-card__note">
               {isPreparingNextLevel
-                ? "La IA está diseñando una rutina nueva y validada con los detectores disponibles."
+                ? "La Forja está preparando una rutina nueva con los detectores disponibles."
                 : nextLevelSource === "ai"
-                  ? "El siguiente nivel fue generado con IA y validado por las reglas de La Forja."
+                  ? "El siguiente nivel fue generado y validado por las reglas de La Forja."
                   : nextLevelSource === "procedural"
-                    ? "El servicio de IA no estuvo disponible; se creó un nivel procedural de respaldo."
+                    ? "El siguiente nivel fue creado mediante el generador procedural de La Forja."
                     : nextLevelGenerationError ??
                       `La victoria se confirmó al superar ${calorieGoal} kcal estimadas.`}
             </p>

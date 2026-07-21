@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -8,9 +9,7 @@ import type {
 } from "@mediapipe/tasks-vision";
 import {
   calculateAngle,
-  distance2D,
   getTorsoHeight,
-  hasVisibleLandmarks,
   POSE_INDEX,
 } from "../utils/poseGeometry.ts";
 
@@ -39,8 +38,6 @@ interface ArmMeasurements {
   rightShoulderAngle: number;
   leftWristY: number;
   rightWristY: number;
-  leftWristToShoulder: number;
-  rightWristToShoulder: number;
   torsoHeight: number;
 }
 
@@ -55,10 +52,37 @@ const REQUIRED_INDICES = [
   POSE_INDEX.rightHip,
 ];
 
-const REPETITION_COOLDOWN_MS = 450;
-const MOVEMENT_ACTIVE_MS = 750;
-const ANGLE_MOVEMENT_DELTA = 2;
-const WRIST_MOVEMENT_DELTA = 0.006;
+const MINIMUM_ARM_VISIBILITY = 0.35;
+const REPETITION_COOLDOWN_MS = 420;
+const MOVEMENT_ACTIVE_MS = 850;
+const ANGLE_MOVEMENT_DELTA = 1.5;
+const WRIST_MOVEMENT_DELTA = 0.004;
+
+/*
+ * Umbrales tolerantes para cámara frontal.
+ * El detector anterior exigía llegar a 72°, algo
+ * demasiado estricto para muchos teléfonos y ángulos.
+ */
+const BICEPS_READY_MIN_ANGLE = 130;
+const BICEPS_TOP_MAX_ANGLE = 110;
+const BICEPS_MAX_SHOULDER_ANGLE = 65;
+
+function hasRequiredArmLandmarks(
+  landmarks: NormalizedLandmark[],
+): boolean {
+  return REQUIRED_INDICES.every((index) => {
+    const landmark = landmarks[index];
+
+    if (!landmark) {
+      return false;
+    }
+
+    return (
+      landmark.visibility === undefined ||
+      landmark.visibility >= MINIMUM_ARM_VISIBILITY
+    );
+  });
+}
 
 function getMeasurements(
   landmarks: NormalizedLandmark[],
@@ -67,13 +91,20 @@ function getMeasurements(
     landmarks[POSE_INDEX.leftShoulder];
   const rightShoulder =
     landmarks[POSE_INDEX.rightShoulder];
-  const leftElbow = landmarks[POSE_INDEX.leftElbow];
-  const rightElbow = landmarks[POSE_INDEX.rightElbow];
-  const leftWrist = landmarks[POSE_INDEX.leftWrist];
-  const rightWrist = landmarks[POSE_INDEX.rightWrist];
+  const leftElbow =
+    landmarks[POSE_INDEX.leftElbow];
+  const rightElbow =
+    landmarks[POSE_INDEX.rightElbow];
+  const leftWrist =
+    landmarks[POSE_INDEX.leftWrist];
+  const rightWrist =
+    landmarks[POSE_INDEX.rightWrist];
   const leftHip = landmarks[POSE_INDEX.leftHip];
   const rightHip = landmarks[POSE_INDEX.rightHip];
-  const torsoHeight = getTorsoHeight(landmarks);
+  const torsoHeight = Math.max(
+    getTorsoHeight(landmarks),
+    0.001,
+  );
 
   return {
     leftElbowAngle: calculateAngle(
@@ -98,12 +129,82 @@ function getMeasurements(
     ),
     leftWristY: leftWrist.y,
     rightWristY: rightWrist.y,
-    leftWristToShoulder:
-      distance2D(leftWrist, leftShoulder) / torsoHeight,
-    rightWristToShoulder:
-      distance2D(rightWrist, rightShoulder) / torsoHeight,
     torsoHeight,
   };
+}
+
+function isBicepsArmReady(
+  side: "left" | "right",
+  measurements: ArmMeasurements,
+  landmarks: NormalizedLandmark[],
+): boolean {
+  const elbowAngle =
+    side === "left"
+      ? measurements.leftElbowAngle
+      : measurements.rightElbowAngle;
+
+  const shoulderAngle =
+    side === "left"
+      ? measurements.leftShoulderAngle
+      : measurements.rightShoulderAngle;
+
+  const elbow =
+    landmarks[
+      side === "left"
+        ? POSE_INDEX.leftElbow
+        : POSE_INDEX.rightElbow
+    ];
+
+  const wrist =
+    landmarks[
+      side === "left"
+        ? POSE_INDEX.leftWrist
+        : POSE_INDEX.rightWrist
+    ];
+
+  return (
+    elbowAngle >= BICEPS_READY_MIN_ANGLE &&
+    shoulderAngle <= BICEPS_MAX_SHOULDER_ANGLE &&
+    wrist.y >=
+      elbow.y - measurements.torsoHeight * 0.14
+  );
+}
+
+function isBicepsArmTop(
+  side: "left" | "right",
+  measurements: ArmMeasurements,
+  landmarks: NormalizedLandmark[],
+): boolean {
+  const elbowAngle =
+    side === "left"
+      ? measurements.leftElbowAngle
+      : measurements.rightElbowAngle;
+
+  const shoulderAngle =
+    side === "left"
+      ? measurements.leftShoulderAngle
+      : measurements.rightShoulderAngle;
+
+  const elbow =
+    landmarks[
+      side === "left"
+        ? POSE_INDEX.leftElbow
+        : POSE_INDEX.rightElbow
+    ];
+
+  const wrist =
+    landmarks[
+      side === "left"
+        ? POSE_INDEX.leftWrist
+        : POSE_INDEX.rightWrist
+    ];
+
+  return (
+    elbowAngle <= BICEPS_TOP_MAX_ANGLE &&
+    shoulderAngle <= BICEPS_MAX_SHOULDER_ANGLE &&
+    wrist.y <=
+      elbow.y + measurements.torsoHeight * 0.18
+  );
 }
 
 function isReadyPosition(
@@ -115,17 +216,27 @@ function isReadyPosition(
     landmarks[POSE_INDEX.leftShoulder];
   const rightShoulder =
     landmarks[POSE_INDEX.rightShoulder];
-  const leftElbow = landmarks[POSE_INDEX.leftElbow];
-  const rightElbow = landmarks[POSE_INDEX.rightElbow];
-  const leftWrist = landmarks[POSE_INDEX.leftWrist];
-  const rightWrist = landmarks[POSE_INDEX.rightWrist];
+  const leftElbow =
+    landmarks[POSE_INDEX.leftElbow];
+  const rightElbow =
+    landmarks[POSE_INDEX.rightElbow];
+  const leftWrist =
+    landmarks[POSE_INDEX.leftWrist];
+  const rightWrist =
+    landmarks[POSE_INDEX.rightWrist];
 
   if (exercise === "biceps-curl") {
     return (
-      measurements.leftElbowAngle >= 145 &&
-      measurements.rightElbowAngle >= 145 &&
-      leftWrist.y >= leftElbow.y - 0.02 &&
-      rightWrist.y >= rightElbow.y - 0.02
+      isBicepsArmReady(
+        "left",
+        measurements,
+        landmarks,
+      ) &&
+      isBicepsArmReady(
+        "right",
+        measurements,
+        landmarks,
+      )
     );
   }
 
@@ -164,17 +275,23 @@ function isTargetPosition(
     landmarks[POSE_INDEX.leftShoulder];
   const rightShoulder =
     landmarks[POSE_INDEX.rightShoulder];
-  const leftWrist = landmarks[POSE_INDEX.leftWrist];
-  const rightWrist = landmarks[POSE_INDEX.rightWrist];
+  const leftWrist =
+    landmarks[POSE_INDEX.leftWrist];
+  const rightWrist =
+    landmarks[POSE_INDEX.rightWrist];
 
   if (exercise === "biceps-curl") {
     return (
-      measurements.leftElbowAngle <= 72 &&
-      measurements.rightElbowAngle <= 72 &&
-      leftWrist.y < leftShoulder.y + measurements.torsoHeight * 0.34 &&
-      rightWrist.y < rightShoulder.y + measurements.torsoHeight * 0.34 &&
-      measurements.leftWristToShoulder <= 0.75 &&
-      measurements.rightWristToShoulder <= 0.75
+      isBicepsArmTop(
+        "left",
+        measurements,
+        landmarks,
+      ) &&
+      isBicepsArmTop(
+        "right",
+        measurements,
+        landmarks,
+      )
     );
   }
 
@@ -182,8 +299,10 @@ function isTargetPosition(
     return (
       measurements.leftElbowAngle >= 152 &&
       measurements.rightElbowAngle >= 152 &&
-      leftWrist.y <= leftShoulder.y - measurements.torsoHeight * 0.2 &&
-      rightWrist.y <= rightShoulder.y - measurements.torsoHeight * 0.2
+      leftWrist.y <=
+        leftShoulder.y - measurements.torsoHeight * 0.2 &&
+      rightWrist.y <=
+        rightShoulder.y - measurements.torsoHeight * 0.2
     );
   }
 
@@ -210,7 +329,7 @@ function getReadyInstruction(
   exercise: ArmExerciseKind,
 ): string {
   if (exercise === "biceps-curl") {
-    return "Brazos abajo, codos cerca del torso. Flexiona ambos brazos y vuelve a bajar con control.";
+    return "Extiende los brazos abajo, mantén los codos cerca del torso y flexiona con control.";
   }
 
   if (exercise === "shoulder-press") {
@@ -224,7 +343,7 @@ function getTopInstruction(
   exercise: ArmExerciseKind,
 ): string {
   if (exercise === "biceps-curl") {
-    return "Buena flexión. Baja los brazos hasta extenderlos por completo.";
+    return "Buena flexión. Baja hasta volver a extender el brazo.";
   }
 
   if (exercise === "shoulder-press") {
@@ -238,7 +357,7 @@ function getLiftInstruction(
   exercise: ArmExerciseKind,
 ): string {
   if (exercise === "biceps-curl") {
-    return "Flexiona un poco más los codos y mantén los brazos cerca del torso.";
+    return "Flexiona más el codo sin levantarlo hacia adelante.";
   }
 
   if (exercise === "shoulder-press") {
@@ -273,14 +392,25 @@ export function useArmExerciseDetector({
     useState(false);
 
   const reachedTargetRef = useRef(false);
+  const leftBicepsTopRef = useRef(false);
+  const rightBicepsTopRef = useRef(false);
   const lastRepetitionAtRef = useRef(0);
   const lastMovementAtRef = useRef(0);
   const wasEnabledRef = useRef(false);
   const previousMeasurementsRef =
     useRef<ArmMeasurements | null>(null);
+  const onValidRepetitionRef =
+    useRef(onValidRepetition);
+
+  useEffect(() => {
+    onValidRepetitionRef.current =
+      onValidRepetition;
+  }, [onValidRepetition]);
 
   const reset = useCallback(() => {
     reachedTargetRef.current = false;
+    leftBicepsTopRef.current = false;
+    rightBicepsTopRef.current = false;
     lastRepetitionAtRef.current = 0;
     lastMovementAtRef.current = 0;
     wasEnabledRef.current = false;
@@ -297,6 +427,26 @@ export function useArmExerciseDetector({
     setRightShoulderAngle(null);
     setIsMovementActive(false);
   }, []);
+
+  const registerValidRepetition = useCallback(
+    (now: number) => {
+      if (
+        now - lastRepetitionAtRef.current <
+        REPETITION_COOLDOWN_MS
+      ) {
+        return false;
+      }
+
+      lastRepetitionAtRef.current = now;
+      onValidRepetitionRef.current();
+      setPhase("ready");
+      setPhaseLabel("Repetición válida");
+      setInstruction(getReadyInstruction(exercise));
+
+      return true;
+    },
+    [exercise],
+  );
 
   const processLandmarks = useCallback(
     (landmarks: NormalizedLandmark[]) => {
@@ -315,7 +465,7 @@ export function useArmExerciseDetector({
         setInstruction(getReadyInstruction(exercise));
       }
 
-      if (!hasVisibleLandmarks(landmarks, REQUIRED_INDICES)) {
+      if (!hasRequiredArmLandmarks(landmarks)) {
         setPhase("waiting");
         setPhaseLabel("Brazos incompletos");
         setInstruction(
@@ -372,8 +522,115 @@ export function useArmExerciseDetector({
 
       previousMeasurementsRef.current = measurements;
       setIsMovementActive(
-        now - lastMovementAtRef.current <= MOVEMENT_ACTIVE_MS,
+        now - lastMovementAtRef.current <=
+          MOVEMENT_ACTIVE_MS,
       );
+
+      /*
+       * Curl de bíceps: admite curls simultáneos y
+       * alternados. Si ambos brazos suben juntos,
+       * el ciclo completo cuenta como una repetición.
+       */
+      if (exercise === "biceps-curl") {
+        const leftReady = isBicepsArmReady(
+          "left",
+          measurements,
+          landmarks,
+        );
+        const rightReady = isBicepsArmReady(
+          "right",
+          measurements,
+          landmarks,
+        );
+        const leftTop = isBicepsArmTop(
+          "left",
+          measurements,
+          landmarks,
+        );
+        const rightTop = isBicepsArmTop(
+          "right",
+          measurements,
+          landmarks,
+        );
+
+        if (leftTop) {
+          leftBicepsTopRef.current = true;
+        }
+
+        if (rightTop) {
+          rightBicepsTopRef.current = true;
+        }
+
+        const bothArmsCompleted =
+          leftBicepsTopRef.current &&
+          rightBicepsTopRef.current &&
+          leftReady &&
+          rightReady;
+
+        if (bothArmsCompleted) {
+          if (registerValidRepetition(now)) {
+            leftBicepsTopRef.current = false;
+            rightBicepsTopRef.current = false;
+          }
+
+          return;
+        }
+
+        const leftArmCompleted =
+          leftBicepsTopRef.current &&
+          leftReady &&
+          !rightBicepsTopRef.current;
+
+        if (leftArmCompleted) {
+          if (registerValidRepetition(now)) {
+            leftBicepsTopRef.current = false;
+          }
+
+          return;
+        }
+
+        const rightArmCompleted =
+          rightBicepsTopRef.current &&
+          rightReady &&
+          !leftBicepsTopRef.current;
+
+        if (rightArmCompleted) {
+          if (registerValidRepetition(now)) {
+            rightBicepsTopRef.current = false;
+          }
+
+          return;
+        }
+
+        if (leftTop || rightTop) {
+          setPhase("top");
+          setPhaseLabel("Flexión alcanzada");
+          setInstruction(getTopInstruction(exercise));
+          return;
+        }
+
+        if (
+          leftBicepsTopRef.current ||
+          rightBicepsTopRef.current
+        ) {
+          setPhase("lowering");
+          setPhaseLabel("Bajando con control");
+          setInstruction(getTopInstruction(exercise));
+          return;
+        }
+
+        if (leftReady && rightReady) {
+          setPhase("ready");
+          setPhaseLabel("Posición inicial");
+          setInstruction(getReadyInstruction(exercise));
+          return;
+        }
+
+        setPhase("lifting");
+        setPhaseLabel("Flexionando brazos");
+        setInstruction(getLiftInstruction(exercise));
+        return;
+      }
 
       const ready = isReadyPosition(
         exercise,
@@ -395,17 +652,8 @@ export function useArmExerciseDetector({
       }
 
       if (reachedTargetRef.current && ready) {
-        const cooldownFinished =
-          now - lastRepetitionAtRef.current >=
-          REPETITION_COOLDOWN_MS;
-
-        if (cooldownFinished) {
-          lastRepetitionAtRef.current = now;
+        if (registerValidRepetition(now)) {
           reachedTargetRef.current = false;
-          onValidRepetition();
-          setPhase("ready");
-          setPhaseLabel("Repetición válida");
-          setInstruction(getReadyInstruction(exercise));
         }
 
         return;
@@ -429,7 +677,12 @@ export function useArmExerciseDetector({
       setPhaseLabel("Ejecutando movimiento");
       setInstruction(getLiftInstruction(exercise));
     },
-    [enabled, exercise, onValidRepetition, reset],
+    [
+      enabled,
+      exercise,
+      registerValidRepetition,
+      reset,
+    ],
   );
 
   return {

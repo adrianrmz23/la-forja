@@ -10,6 +10,12 @@ export type ExerciseDetector =
   | "squat"
   | "lunge"
   | "high-knees"
+  | "jumping-jack"
+  | "step-jack"
+  | "calf-raise"
+  | "knee-to-elbow"
+  | "squat-to-press"
+  | "lateral-step-squat"
   | "boxing"
   | "jab"
   | "cross"
@@ -17,7 +23,8 @@ export type ExerciseDetector =
   | "boxing-combination"
   | "biceps-curl"
   | "shoulder-press"
-  | "lateral-raise";
+  | "lateral-raise"
+  | "front-raise";
 
 export type ExerciseId =
   | "active-march"
@@ -26,6 +33,12 @@ export type ExerciseId =
   | "squat"
   | "reverse-lunge"
   | "high-knees"
+  | "jumping-jack"
+  | "step-jack"
+  | "calf-raise"
+  | "knee-to-elbow"
+  | "squat-to-press"
+  | "lateral-step-squat"
   | "jab"
   | "cross"
   | "jab-cross"
@@ -34,7 +47,8 @@ export type ExerciseId =
   | "free-shadowboxing"
   | "biceps-curl"
   | "shoulder-press"
-  | "lateral-raise";
+  | "lateral-raise"
+  | "front-raise";
 
 export type ExerciseCountUnit =
   | "repetition"

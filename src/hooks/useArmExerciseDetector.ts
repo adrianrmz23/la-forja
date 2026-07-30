@@ -16,7 +16,8 @@ import {
 export type ArmExerciseKind =
   | "biceps-curl"
   | "shoulder-press"
-  | "lateral-raise";
+  | "lateral-raise"
+  | "front-raise";
 
 export type ArmExercisePhase =
   | "waiting"
@@ -79,6 +80,18 @@ const LATERAL_TARGET_MIN_SHOULDER = 48;
 const LATERAL_TARGET_AVERAGE_SHOULDER = 64;
 const LATERAL_TARGET_MIN_ELBOW = 112;
 const LATERAL_WRIST_HEIGHT_TOLERANCE = 0.42;
+
+/*
+ * Elevación frontal deliberadamente permisiva. Desde una cámara frontal
+ * no es posible distinguir con precisión absoluta si el brazo viaja
+ * totalmente al frente o ligeramente en diagonal. La app valida altura,
+ * extensión y regreso; el usuario sigue la instrucción visual.
+ */
+const FRONT_READY_MAX_SHOULDER = 50;
+const FRONT_TARGET_MIN_SHOULDER = 42;
+const FRONT_TARGET_AVERAGE_SHOULDER = 58;
+const FRONT_TARGET_MIN_ELBOW = 105;
+const FRONT_WRIST_HEIGHT_TOLERANCE = 0.48;
 
 function hasRequiredArmLandmarks(
   landmarks: NormalizedLandmark[],
@@ -358,6 +371,75 @@ function isLateralRaiseTarget(
   );
 }
 
+function isFrontRaiseReady(
+  measurements: ArmMeasurements,
+  landmarks: NormalizedLandmark[],
+): boolean {
+  const leftShoulder =
+    landmarks[POSE_INDEX.leftShoulder];
+  const rightShoulder =
+    landmarks[POSE_INDEX.rightShoulder];
+
+  return (
+    measurements.leftShoulderAngle <=
+      FRONT_READY_MAX_SHOULDER &&
+    measurements.rightShoulderAngle <=
+      FRONT_READY_MAX_SHOULDER &&
+    measurements.leftWristY >=
+      leftShoulder.y -
+        measurements.torsoHeight * 0.15 &&
+    measurements.rightWristY >=
+      rightShoulder.y -
+        measurements.torsoHeight * 0.15
+  );
+}
+
+function isFrontRaiseTarget(
+  measurements: ArmMeasurements,
+  landmarks: NormalizedLandmark[],
+): boolean {
+  const leftShoulder =
+    landmarks[POSE_INDEX.leftShoulder];
+  const rightShoulder =
+    landmarks[POSE_INDEX.rightShoulder];
+
+  const averageShoulder =
+    (
+      measurements.leftShoulderAngle +
+      measurements.rightShoulderAngle
+    ) / 2;
+
+  const leftAtUsefulHeight =
+    Math.abs(
+      measurements.leftWristY - leftShoulder.y,
+    ) <=
+    measurements.torsoHeight *
+      FRONT_WRIST_HEIGHT_TOLERANCE;
+
+  const rightAtUsefulHeight =
+    Math.abs(
+      measurements.rightWristY - rightShoulder.y,
+    ) <=
+    measurements.torsoHeight *
+      FRONT_WRIST_HEIGHT_TOLERANCE;
+
+  return (
+    measurements.leftShoulderAngle >=
+      FRONT_TARGET_MIN_SHOULDER &&
+    measurements.rightShoulderAngle >=
+      FRONT_TARGET_MIN_SHOULDER &&
+    averageShoulder >=
+      FRONT_TARGET_AVERAGE_SHOULDER &&
+    measurements.leftElbowAngle >=
+      FRONT_TARGET_MIN_ELBOW &&
+    measurements.rightElbowAngle >=
+      FRONT_TARGET_MIN_ELBOW &&
+    leftAtUsefulHeight &&
+    rightAtUsefulHeight
+  );
+}
+
+
 function getReadyInstruction(
   exercise: ArmExerciseKind,
 ): string {
@@ -367,6 +449,10 @@ function getReadyInstruction(
 
   if (exercise === "shoulder-press") {
     return "Manos cerca de los hombros. Empuja arriba hasta casi extender los brazos.";
+  }
+
+  if (exercise === "front-raise") {
+    return "Brazos abajo. Elévalos al frente hasta cerca de la altura de los hombros.";
   }
 
   return "Brazos abajo. Elévalos hacia los lados hasta cerca de la altura de los hombros.";
@@ -383,6 +469,10 @@ function getTopInstruction(
     return "Press registrado. Regresa las mancuernas a la altura de los hombros.";
   }
 
+  if (exercise === "front-raise") {
+    return "Elevación frontal registrada. Baja los brazos con control.";
+  }
+
   return "Elevación registrada. Baja los brazos con control.";
 }
 
@@ -395,6 +485,10 @@ function getLiftInstruction(
 
   if (exercise === "shoulder-press") {
     return "Sube ambas manos por encima de los hombros.";
+  }
+
+  if (exercise === "front-raise") {
+    return "Eleva ambos brazos al frente un poco más.";
   }
 
   return "Separa los brazos del torso y elévalos un poco más.";
@@ -678,10 +772,15 @@ export function useArmExerciseDetector({
               measurements,
               landmarks,
             )
-          : isLateralRaiseReady(
-              measurements,
-              landmarks,
-            );
+          : exercise === "front-raise"
+            ? isFrontRaiseReady(
+                measurements,
+                landmarks,
+              )
+            : isLateralRaiseReady(
+                measurements,
+                landmarks,
+              );
 
       const target =
         exercise === "shoulder-press"
@@ -689,10 +788,15 @@ export function useArmExerciseDetector({
               measurements,
               landmarks,
             )
-          : isLateralRaiseTarget(
-              measurements,
-              landmarks,
-            );
+          : exercise === "front-raise"
+            ? isFrontRaiseTarget(
+                measurements,
+                landmarks,
+              )
+            : isLateralRaiseTarget(
+                measurements,
+                landmarks,
+              );
 
       if (ready) {
         cycleArmedRef.current = true;

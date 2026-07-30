@@ -16,6 +16,12 @@ import { useCrossDetector } from "./useCrossDetector.ts";
 import { useHooksDetector } from "./useHooksDetector.ts";
 import { useBoxingCombinationDetector } from "./useBoxingCombinationDetector.ts";
 import { useArmExerciseDetector } from "./useArmExerciseDetector.ts";
+import { useJumpingJackDetector } from "./useJumpingJackDetector.ts";
+import { useStepJackDetector } from "./useStepJackDetector.ts";
+import { useCalfRaiseDetector } from "./useCalfRaiseDetector.ts";
+import { useKneeToElbowDetector } from "./useKneeToElbowDetector.ts";
+import { useSquatToPressDetector } from "./useSquatToPressDetector.ts";
+import { useLateralStepSquatDetector } from "./useLateralStepSquatDetector.ts";
 
 export type DetectedMovementKind = "repetition" | "combination";
 
@@ -222,6 +228,88 @@ export function useMovementDetectors({
     });
   }, [emitMovement]);
 
+  const handleFrontRaiseValid = useCallback(() => {
+    emitMovement({
+      kind: "repetition",
+      detector: "front-raise",
+      label: "Elevación frontal válida",
+      message: "Los brazos alcanzaron una altura útil y regresaron con control.",
+      damage: 2,
+    });
+  }, [emitMovement]);
+
+  const handleJumpingJackValid = useCallback(() => {
+    emitMovement({
+      kind: "repetition",
+      detector: "jumping-jack",
+      label: "Jumping jack válido",
+      message: "Apertura de brazos y piernas registrada.",
+      damage: 2,
+    });
+  }, [emitMovement]);
+
+  const handleStepJackValid = useCallback(
+    (side: BodySide) => {
+      emitMovement({
+        kind: "repetition",
+        detector: "step-jack",
+        label: "Step jack válido",
+        message: `Paso ${formatSide(side).toLowerCase()} registrado.`,
+        damage: 1,
+        side,
+      });
+    },
+    [emitMovement],
+  );
+
+  const handleCalfRaiseValid = useCallback(() => {
+    emitMovement({
+      kind: "repetition",
+      detector: "calf-raise",
+      label: "Elevación de talones válida",
+      message: "Subida sobre las puntas registrada.",
+      damage: 1,
+    });
+  }, [emitMovement]);
+
+  const handleKneeToElbowValid = useCallback(
+    (side: BodySide) => {
+      emitMovement({
+        kind: "repetition",
+        detector: "knee-to-elbow",
+        label: "Rodilla al codo válida",
+        message: `${formatSide(side)} registrada con cruce de torso.`,
+        damage: 2,
+        side,
+      });
+    },
+    [emitMovement],
+  );
+
+  const handleSquatToPressValid = useCallback(() => {
+    emitMovement({
+      kind: "repetition",
+      detector: "squat-to-press",
+      label: "Sentadilla con press válida",
+      message: "Sentadilla, regreso de pie y press registrados.",
+      damage: 3,
+    });
+  }, [emitMovement]);
+
+  const handleLateralStepSquatValid = useCallback(
+    (side: BodySide) => {
+      emitMovement({
+        kind: "repetition",
+        detector: "lateral-step-squat",
+        label: "Paso lateral válido",
+        message: `Sentadilla lateral hacia ${formatSide(side).toLowerCase()} registrada.`,
+        damage: 2,
+        side,
+      });
+    },
+    [emitMovement],
+  );
+
   const {
     processLandmarks: processSquatLandmarks,
     reset: resetSquatDetector,
@@ -301,6 +389,42 @@ export function useMovementDetectors({
     onValidRepetition: handleLateralRaiseValid,
   });
 
+  const frontRaise = useArmExerciseDetector({
+    enabled: enabled && detector === "front-raise",
+    exercise: "front-raise",
+    onValidRepetition: handleFrontRaiseValid,
+  });
+
+  const jumpingJack = useJumpingJackDetector({
+    enabled: enabled && detector === "jumping-jack",
+    onValidRepetition: handleJumpingJackValid,
+  });
+
+  const stepJack = useStepJackDetector({
+    enabled: enabled && detector === "step-jack",
+    onValidRepetition: handleStepJackValid,
+  });
+
+  const calfRaise = useCalfRaiseDetector({
+    enabled: enabled && detector === "calf-raise",
+    onValidRepetition: handleCalfRaiseValid,
+  });
+
+  const kneeToElbow = useKneeToElbowDetector({
+    enabled: enabled && detector === "knee-to-elbow",
+    onValidRepetition: handleKneeToElbowValid,
+  });
+
+  const squatToPress = useSquatToPressDetector({
+    enabled: enabled && detector === "squat-to-press",
+    onValidRepetition: handleSquatToPressValid,
+  });
+
+  const lateralStepSquat = useLateralStepSquatDetector({
+    enabled: enabled && detector === "lateral-step-squat",
+    onValidRepetition: handleLateralStepSquatValid,
+  });
+
   const processLandmarks = useCallback(
     (landmarks: NormalizedLandmark[] | null) => {
       if (!landmarks) {
@@ -318,19 +442,33 @@ export function useMovementDetectors({
       bicepsCurl.processLandmarks(landmarks);
       shoulderPress.processLandmarks(landmarks);
       lateralRaise.processLandmarks(landmarks);
+      frontRaise.processLandmarks(landmarks);
+      jumpingJack.processLandmarks(landmarks);
+      stepJack.processLandmarks(landmarks);
+      calfRaise.processLandmarks(landmarks);
+      kneeToElbow.processLandmarks(landmarks);
+      squatToPress.processLandmarks(landmarks);
+      lateralStepSquat.processLandmarks(landmarks);
     },
     [
       bicepsCurl,
+      calfRaise,
       combination,
       cross,
       highKnees,
       hooks,
+      frontRaise,
+      jumpingJack,
+      kneeToElbow,
       jab,
       lateralRaise,
+      lateralStepSquat,
       lunge,
       march,
       processSquatLandmarks,
       shoulderPress,
+      squatToPress,
+      stepJack,
     ],
   );
 
@@ -346,6 +484,13 @@ export function useMovementDetectors({
     bicepsCurl.reset();
     shoulderPress.reset();
     lateralRaise.reset();
+    frontRaise.reset();
+    jumpingJack.reset();
+    stepJack.reset();
+    calfRaise.reset();
+    kneeToElbow.reset();
+    squatToPress.reset();
+    lateralStepSquat.reset();
   }, [
     bicepsCurl,
     combination,
@@ -358,6 +503,13 @@ export function useMovementDetectors({
     march,
     resetSquatDetector,
     shoulderPress,
+    calfRaise,
+    frontRaise,
+    jumpingJack,
+    kneeToElbow,
+    lateralStepSquat,
+    squatToPress,
+    stepJack,
   ]);
 
   const squatMovementActive =
@@ -366,30 +518,48 @@ export function useMovementDetectors({
       squatPhase === "bottom" ||
       squatPhase === "ascending");
 
-  const movementActive =
-    detector === "squat"
-      ? squatMovementActive
-      : detector === "high-knees"
-        ? highKnees.isMovementActive
-        : detector === "march"
-          ? march.isMovementActive
-          : detector === "lunge"
-            ? lunge.isMovementActive
-            : detector === "jab"
-              ? jab.isMovementActive
-              : detector === "cross"
-                ? cross.isMovementActive
-                : detector === "hooks"
-                  ? hooks.isMovementActive
-                  : detector === "boxing-combination"
-                    ? combination.isMovementActive
-                    : detector === "biceps-curl"
-                      ? bicepsCurl.isMovementActive
-                      : detector === "shoulder-press"
-                        ? shoulderPress.isMovementActive
-                        : detector === "lateral-raise"
-                          ? lateralRaise.isMovementActive
-                          : false;
+  const movementActive = (() => {
+    switch (detector) {
+      case "squat":
+        return squatMovementActive;
+      case "high-knees":
+        return highKnees.isMovementActive;
+      case "march":
+        return march.isMovementActive;
+      case "lunge":
+        return lunge.isMovementActive;
+      case "jab":
+        return jab.isMovementActive;
+      case "cross":
+        return cross.isMovementActive;
+      case "hooks":
+        return hooks.isMovementActive;
+      case "boxing-combination":
+        return combination.isMovementActive;
+      case "biceps-curl":
+        return bicepsCurl.isMovementActive;
+      case "shoulder-press":
+        return shoulderPress.isMovementActive;
+      case "lateral-raise":
+        return lateralRaise.isMovementActive;
+      case "front-raise":
+        return frontRaise.isMovementActive;
+      case "jumping-jack":
+        return jumpingJack.isMovementActive;
+      case "step-jack":
+        return stepJack.isMovementActive;
+      case "calf-raise":
+        return calfRaise.isMovementActive;
+      case "knee-to-elbow":
+        return kneeToElbow.isMovementActive;
+      case "squat-to-press":
+        return squatToPress.isMovementActive;
+      case "lateral-step-squat":
+        return lateralStepSquat.isMovementActive;
+      default:
+        return false;
+    }
+  })();
 
   const technique = useMemo<DetectorTechniqueState>(() => {
     if (detector === "squat") {
@@ -527,6 +697,90 @@ export function useMovementDetectors({
       };
     }
 
+    if (detector === "front-raise") {
+      return {
+        phase: frontRaise.phase,
+        phaseLabel: frontRaise.phaseLabel,
+        instruction: frontRaise.instruction,
+        primaryLabel: "Hombros",
+        primaryValue: `${frontRaise.leftShoulderAngle ?? "--"}° / ${frontRaise.rightShoulderAngle ?? "--"}°`,
+        secondaryLabel: "Equipo",
+        secondaryValue: "Mancuernas opcionales",
+      };
+    }
+
+    if (detector === "jumping-jack") {
+      return {
+        phase: jumpingJack.phase,
+        phaseLabel: jumpingJack.phaseLabel,
+        instruction: jumpingJack.instruction,
+        primaryLabel: "Apertura de pies",
+        primaryValue: jumpingJack.footSpreadRatio === null ? "--" : `${jumpingJack.footSpreadRatio}x`,
+        secondaryLabel: "Elevación de brazos",
+        secondaryValue: jumpingJack.armRaiseAngle === null ? "--" : `${jumpingJack.armRaiseAngle}°`,
+      };
+    }
+
+    if (detector === "step-jack") {
+      return {
+        phase: stepJack.phase,
+        phaseLabel: stepJack.phaseLabel,
+        instruction: stepJack.instruction,
+        primaryLabel: "Lado activo",
+        primaryValue: formatSide(stepJack.activeSide),
+        secondaryLabel: "Distancia del paso",
+        secondaryValue: stepJack.stepDistanceRatio === null ? "--" : `${stepJack.stepDistanceRatio}x`,
+      };
+    }
+
+    if (detector === "calf-raise") {
+      return {
+        phase: calfRaise.phase,
+        phaseLabel: calfRaise.phaseLabel,
+        instruction: calfRaise.instruction,
+        primaryLabel: "Elevación de talón",
+        primaryValue: calfRaise.heelLift === null ? "--" : `${calfRaise.heelLift}`,
+        secondaryLabel: "Elevación corporal",
+        secondaryValue: calfRaise.hipRise === null ? "--" : `${calfRaise.hipRise}`,
+      };
+    }
+
+    if (detector === "knee-to-elbow") {
+      return {
+        phase: kneeToElbow.phase,
+        phaseLabel: kneeToElbow.phaseLabel,
+        instruction: kneeToElbow.instruction,
+        primaryLabel: "Rodilla activa",
+        primaryValue: formatSide(kneeToElbow.activeSide),
+        secondaryLabel: "Distancia al brazo",
+        secondaryValue: kneeToElbow.contactDistanceRatio === null ? "--" : `${kneeToElbow.contactDistanceRatio}x`,
+      };
+    }
+
+    if (detector === "squat-to-press") {
+      return {
+        phase: squatToPress.phase,
+        phaseLabel: squatToPress.phaseLabel,
+        instruction: squatToPress.instruction,
+        primaryLabel: "Ángulo de rodilla",
+        primaryValue: squatToPress.kneeAngle === null ? "--" : `${squatToPress.kneeAngle}°`,
+        secondaryLabel: "Ángulo de press",
+        secondaryValue: squatToPress.pressAngle === null ? "--" : `${squatToPress.pressAngle}°`,
+      };
+    }
+
+    if (detector === "lateral-step-squat") {
+      return {
+        phase: lateralStepSquat.phase,
+        phaseLabel: lateralStepSquat.phaseLabel,
+        instruction: lateralStepSquat.instruction,
+        primaryLabel: "Lado activo",
+        primaryValue: formatSide(lateralStepSquat.activeSide),
+        secondaryLabel: "Ángulo / paso",
+        secondaryValue: `${lateralStepSquat.kneeAngle ?? "--"}° / ${lateralStepSquat.stepRatio ?? "--"}x`,
+      };
+    }
+
     return {
       phase: "waiting",
       phaseLabel: "Esperando ejercicio",
@@ -598,6 +852,42 @@ export function useMovementDetectors({
     squatPhase,
     squatPhaseLabel,
     trackedSide,
+    calfRaise.heelLift,
+    calfRaise.hipRise,
+    calfRaise.instruction,
+    calfRaise.phase,
+    calfRaise.phaseLabel,
+    frontRaise.instruction,
+    frontRaise.leftShoulderAngle,
+    frontRaise.phase,
+    frontRaise.phaseLabel,
+    frontRaise.rightShoulderAngle,
+    jumpingJack.armRaiseAngle,
+    jumpingJack.footSpreadRatio,
+    jumpingJack.instruction,
+    jumpingJack.phase,
+    jumpingJack.phaseLabel,
+    kneeToElbow.activeSide,
+    kneeToElbow.contactDistanceRatio,
+    kneeToElbow.instruction,
+    kneeToElbow.phase,
+    kneeToElbow.phaseLabel,
+    lateralStepSquat.activeSide,
+    lateralStepSquat.instruction,
+    lateralStepSquat.kneeAngle,
+    lateralStepSquat.phase,
+    lateralStepSquat.phaseLabel,
+    lateralStepSquat.stepRatio,
+    squatToPress.instruction,
+    squatToPress.kneeAngle,
+    squatToPress.phase,
+    squatToPress.phaseLabel,
+    squatToPress.pressAngle,
+    stepJack.activeSide,
+    stepJack.instruction,
+    stepJack.phase,
+    stepJack.phaseLabel,
+    stepJack.stepDistanceRatio,
   ]);
 
   return {

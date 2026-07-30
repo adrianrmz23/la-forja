@@ -23,11 +23,14 @@ import {
 
 const MINIMUM_ROUTINE_CALORIES = 250;
 
+/*
+ * Se conserva "boxing" en los tipos por compatibilidad con niveles antiguos,
+ * pero los niveles nuevos solo rotan entre estos tres temas estables.
+ */
 const THEME_ROTATION: LevelTheme[] = [
   "balanced",
   "strength",
   "cardio",
-  "boxing",
 ];
 
 const DIFFICULTY_SETTINGS: Record<
@@ -88,20 +91,32 @@ const NAME_PARTS: Record<
     titles: ["Maestro de la fuerza", "Titán de la resistencia", "Guardián del acero"],
   },
   cardio: {
-    beginnings: ["Carrera", "Tormenta", "Pulso", "Oleada", "Ascenso"],
+    beginnings: ["Tormenta", "Pulso", "Oleada", "Ascenso", "Vendaval"],
     endings: ["Escarlata", "de Chispas", "del Relámpago", "de Fuego", "del Vendaval"],
     locations: ["Corredor del Relámpago", "Escalinata Escarlata", "Cámara del Pulso", "Arena del Vendaval"],
     enemies: ["Espectro Veloz", "Corredor Escarlata", "Bestia del Pulso", "Cazador de Chispas"],
     titles: ["Señor del ritmo", "Depredador del pulso", "Guardián de la velocidad"],
   },
   boxing: {
-    beginnings: ["Combate", "Asalto", "Puños", "Guardia", "Duelo"],
-    endings: ["del Eclipse", "de Acero", "del Campeón", "de las Sombras", "del Dragón"],
-    locations: ["Arena del Campeón", "Círculo de las Sombras", "Foso del Dragón", "Templo de los Puños"],
-    enemies: ["Campeón Sombrío", "Púgil de Acero", "Dragón de la Guardia", "Maestro del Eclipse"],
-    titles: ["Campeón de la arena", "Maestro de los puños", "Señor de la guardia"],
+    beginnings: ["Tormenta", "Prueba", "Pulso"],
+    endings: ["de Acero", "de las Sombras", "del Dragón"],
+    locations: ["Arena del Campeón", "Círculo de las Sombras", "Foso del Dragón"],
+    enemies: ["Campeón Sombrío", "Guardián de Acero", "Dragón del Pulso"],
+    titles: ["Campeón de la arena", "Guardián del ritmo", "Señor de la resistencia"],
   },
 };
+
+const FORBIDDEN_PROCEDURAL_DETECTORS = new Set([
+  "boxing",
+  "jab",
+  "cross",
+  "hooks",
+  "boxing-combination",
+]);
+
+function normalizeTheme(theme: LevelTheme | undefined): LevelTheme {
+  return theme === "boxing" ? "cardio" : (theme ?? "balanced");
+}
 
 function createDefaultSeed(levelNumber: number): string {
   return `forge-level-${levelNumber}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -118,8 +133,12 @@ function generateTarget(
   random: SeededRandom,
 ): number {
   const range = entry.targets[difficulty];
-  const steps = Math.max(0, Math.floor((range.maximum - range.minimum) / range.step));
-  const baseTarget = range.minimum + random.integer(0, steps) * range.step;
+  const steps = Math.max(
+    0,
+    Math.floor((range.maximum - range.minimum) / range.step),
+  );
+  const baseTarget =
+    range.minimum + random.integer(0, steps) * range.step;
 
   const stageMultiplier: Record<RoutineExerciseStage, number> = {
     warmup: 0.7,
@@ -128,7 +147,10 @@ function generateTarget(
     overload: 0.9,
   };
 
-  return roundToStep(baseTarget * stageMultiplier[stage], range.step);
+  return roundToStep(
+    baseTarget * stageMultiplier[stage],
+    range.step,
+  );
 }
 
 function createRoutineExercise(
@@ -139,11 +161,13 @@ function createRoutineExercise(
   random: SeededRandom,
 ): RoutineExercise {
   const settings = DIFFICULTY_SETTINGS[difficulty];
-
   const restVariation = random.integer(-3, 5);
   const restSeconds = Math.max(
     8,
-    Math.round((entry.baseRestSeconds + restVariation) * settings.restMultiplier),
+    Math.round(
+      (entry.baseRestSeconds + restVariation) *
+        settings.restMultiplier,
+    ),
   );
 
   return {
@@ -168,14 +192,17 @@ function selectUniqueExercises(
   random: SeededRandom,
   recentExerciseIds: Set<string>,
 ): ExerciseCatalogEntry[] {
-  const fresh = candidates.filter(
+  const usable = candidates.filter(
+    (candidate) =>
+      !FORBIDDEN_PROCEDURAL_DETECTORS.has(candidate.detector),
+  );
+  const fresh = usable.filter(
     (candidate) => !recentExerciseIds.has(candidate.exerciseId),
   );
-
   const ordered = [
     ...random.shuffle(fresh),
     ...random.shuffle(
-      candidates.filter((candidate) =>
+      usable.filter((candidate) =>
         recentExerciseIds.has(candidate.exerciseId),
       ),
     ),
@@ -199,7 +226,7 @@ function selectUniqueExercises(
 
   if (selected.length < amount) {
     throw new Error(
-      `No existen suficientes ejercicios para generar un bloque de ${amount} movimientos.`,
+      `No existen suficientes ejercicios seguros para generar un bloque de ${amount} movimientos.`,
     );
   }
 
@@ -238,7 +265,8 @@ function estimateRoutineMinutes(blocks: RoutineBlock[]): number {
     for (let round = 0; round < block.rounds; round += 1) {
       block.exercises.forEach((exercise) => {
         totalSeconds +=
-          exercise.target * (exercise.estimatedSecondsPerRep ?? 2);
+          exercise.target *
+          (exercise.estimatedSecondsPerRep ?? 2);
         totalSeconds += exercise.restSeconds;
       });
     }
@@ -247,34 +275,45 @@ function estimateRoutineMinutes(blocks: RoutineBlock[]): number {
   return Math.max(10, Math.round(totalSeconds / 60));
 }
 
+function findCatalogEntry(key: string): ExerciseCatalogEntry {
+  const entry = exerciseCatalog.find(
+    (exercise) => exercise.key === key,
+  );
+
+  if (!entry) {
+    throw new Error(`No se encontró el ejercicio: ${key}.`);
+  }
+
+  return entry;
+}
+
 function buildOverload(
   difficulty: ProceduralDifficulty,
   random: SeededRandom,
 ): RoutineOverloadConfig {
   const preferredKeys = [
-    "high-knees",
+    random.chance(0.55) ? "jumping-jack" : "step-jack",
     "squat",
-    random.chance(0.5) ? "jab-cross" : "jab-cross-hook",
-    random.pick(["biceps-curl", "shoulder-press", "lateral-raise"]),
+    "knee-to-elbow",
+    random.pick([
+      "biceps-curl",
+      "shoulder-press",
+      "lateral-raise",
+      "front-raise",
+    ]),
+    "calf-raise",
   ];
 
-  const entries = preferredKeys.map((key) => {
-    const entry = exerciseCatalog.find((exercise) => exercise.key === key);
-
-    if (!entry) {
-      throw new Error(`No se encontró el ejercicio de sobrecarga: ${key}.`);
-    }
-
-    return entry;
-  });
+  const entries = preferredKeys.map(findCatalogEntry);
 
   return {
     id: "procedural-overload",
     name: "Sobrecarga de la Forja",
     description:
-      "Ronda adicional por movimientos válidos para alcanzar la meta calórica mínima.",
+      "Ronda adicional por movimientos válidos para alcanzar la meta mínima de 250 kcal.",
     entryRestSeconds: difficulty === "beginner" ? 35 : 30,
-    betweenRoundsRestSeconds: difficulty === "advanced" ? 30 : 35,
+    betweenRoundsRestSeconds:
+      difficulty === "advanced" ? 30 : 35,
     exercises: entries.map((entry, index) => {
       const exercise = createRoutineExercise(
         entry,
@@ -301,11 +340,15 @@ function validateRoutine(routine: WorkoutRoutine): void {
   }
 
   if (routine.blocks.length < 3) {
-    throw new Error("La rutina debe incluir calentamiento, bloques principales y jefe.");
+    throw new Error(
+      "La rutina debe incluir calentamiento, bloques principales y jefe.",
+    );
   }
 
   if (!routine.overload || routine.overload.exercises.length === 0) {
-    throw new Error("La rutina generada debe incluir una sobrecarga automática.");
+    throw new Error(
+      "La rutina generada debe incluir una sobrecarga automática.",
+    );
   }
 
   const exercises = [
@@ -316,22 +359,30 @@ function validateRoutine(routine: WorkoutRoutine): void {
   exercises.forEach((exercise) => {
     if (exercise.mode === "active_duration") {
       throw new Error(
-        `El ejercicio ${exercise.name} usa tiempo activo; los niveles procedurales deben avanzar por conteo.`,
+        `El ejercicio ${exercise.name} usa tiempo activo; las rutinas deben avanzar por repeticiones.`,
       );
     }
 
     if (exercise.target <= 0) {
-      throw new Error(`El ejercicio ${exercise.name} tiene un objetivo inválido.`);
+      throw new Error(
+        `El ejercicio ${exercise.name} tiene un objetivo inválido.`,
+      );
+    }
+
+    if (FORBIDDEN_PROCEDURAL_DETECTORS.has(exercise.detector)) {
+      throw new Error(
+        `El ejercicio ${exercise.name} utiliza un detector de boxeo experimental y no puede bloquear la campaña.`,
+      );
     }
   });
 }
 
 function getSecondaryTheme(theme: LevelTheme): LevelTheme {
   const alternatives: Record<LevelTheme, LevelTheme> = {
-    balanced: "boxing",
+    balanced: "cardio",
     strength: "balanced",
-    cardio: "boxing",
-    boxing: "strength",
+    cardio: "strength",
+    boxing: "balanced",
   };
 
   return alternatives[theme];
@@ -345,52 +396,53 @@ export function generateProceduralLevel(
     MINIMUM_ROUTINE_CALORIES,
     Math.round(options.minimumCalories),
   );
-  const theme =
+  const requestedTheme =
     options.preferredTheme ??
     THEME_ROTATION[(levelNumber - 1) % THEME_ROTATION.length];
+  const theme = normalizeTheme(requestedTheme);
   const seed = options.seed ?? createDefaultSeed(levelNumber);
   const random = createSeededRandom(seed);
   const settings = DIFFICULTY_SETTINGS[options.difficulty];
-  const recentExerciseIds = new Set(options.recentExerciseIds ?? []);
+  const recentExerciseIds = new Set(
+    options.recentExerciseIds ?? [],
+  );
 
-  const warmupCandidates = getExercisesForStage("warmup");
   const warmupEntries = selectUniqueExercises(
-    warmupCandidates,
+    getExercisesForStage("warmup"),
     3,
     random,
     recentExerciseIds,
   );
 
-  const primaryCandidates = getExercisesForStage("main", theme);
-  const primaryAmount = theme === "boxing" ? 4 : 3;
   const primaryEntries = selectUniqueExercises(
-    primaryCandidates,
-    primaryAmount,
+    getExercisesForStage("main", theme),
+    3,
     random,
     recentExerciseIds,
   );
 
   const secondaryTheme = getSecondaryTheme(theme);
-  const secondaryCandidates = getExercisesForStage("main", secondaryTheme);
   const secondaryEntries = selectUniqueExercises(
-    secondaryCandidates,
-    theme === "boxing" ? 2 : 3,
+    getExercisesForStage("main", secondaryTheme),
+    3,
     random,
-    new Set(primaryEntries.map((entry) => entry.exerciseId)),
+    new Set(
+      primaryEntries.map((entry) => entry.exerciseId),
+    ),
   );
 
-  const bossCandidates = getExercisesForStage("boss").filter((entry) =>
-    [
-      "jab-cross",
-      "jab-cross-hook",
-      "hooks",
-      "squat",
-      "reverse-lunge",
-      "biceps-curl",
-      "shoulder-press",
-    ].includes(
-      entry.key,
-    ),
+  const bossCandidates = getExercisesForStage("boss").filter(
+    (entry) =>
+      [
+        "squat-to-press",
+        "lateral-step-squat",
+        "jumping-jack",
+        "knee-to-elbow",
+        "squat",
+        "reverse-lunge",
+        "shoulder-press",
+        "high-knees",
+      ].includes(entry.key),
   );
   const bossEntries = selectUniqueExercises(
     bossCandidates,
@@ -411,13 +463,11 @@ export function generateProceduralLevel(
     ),
     createBlock(
       "procedural-primary",
-      theme === "boxing"
-        ? "Disciplina de los Puños"
-        : theme === "strength"
-          ? "Muralla del Coloso"
-          : theme === "cardio"
-            ? "Pulso Escarlata"
-            : "Prueba del Guerrero",
+      theme === "strength"
+        ? "Muralla del Coloso"
+        : theme === "cardio"
+          ? "Pulso Escarlata"
+          : "Prueba del Guerrero",
       settings.mainRounds,
       primaryEntries,
       options.difficulty,
@@ -447,13 +497,14 @@ export function generateProceduralLevel(
   const names = NAME_PARTS[theme];
   const name = `${random.pick(names.beginnings)} ${random.pick(names.endings)}`;
   const enemyName = random.pick(names.enemies);
-  const routineId = `procedural-routine-${levelNumber}-${seed.slice(-8)}`;
+  const routineId =
+    `procedural-routine-${levelNumber}-${seed.slice(-8)}`;
 
   const routine: WorkoutRoutine = {
     id: routineId,
     name,
     description:
-      "Nivel procedural creado con ejercicios aprobados, objetivos por repeticiones y sobrecarga automática.",
+      "Nivel procedural creado con ejercicios amplios y detectables, objetivos por repeticiones y sobrecarga automática.",
     minimumCalories,
     plannedCalories: Math.max(
       minimumCalories + 25,
@@ -481,8 +532,12 @@ export function generateProceduralLevel(
     locationName: random.pick(names.locations),
     enemyName,
     enemyTitle: random.pick(names.titles),
-    experienceReward: Math.round((90 + levelNumber * 8) * rewardMultiplier),
-    coinReward: Math.round((20 + levelNumber * 2) * rewardMultiplier),
+    experienceReward: Math.round(
+      (90 + levelNumber * 8) * rewardMultiplier,
+    ),
+    coinReward: Math.round(
+      (20 + levelNumber * 2) * rewardMultiplier,
+    ),
     createdAt: new Date().toISOString(),
     completedAt: null,
     routine,
@@ -495,9 +550,14 @@ export function collectRecentExerciseIds(
 ): string[] {
   return levels
     .slice(-Math.max(1, levelLimit))
-    .flatMap((level) =>
-      level.routine.blocks.flatMap((block) =>
-        block.exercises.map((exercise) => exercise.exerciseId),
+    .flatMap((level) => [
+      ...level.routine.blocks.flatMap((block) =>
+        block.exercises.map(
+          (exercise) => exercise.exerciseId,
+        ),
       ),
-    );
+      ...(level.routine.overload?.exercises.map(
+        (exercise) => exercise.exerciseId,
+      ) ?? []),
+    ]);
 }

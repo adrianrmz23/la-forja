@@ -13,6 +13,25 @@ import type {
 
 const MINIMUM_ROUTINE_CALORIES = 250;
 
+const LEGACY_BOXING_DETECTORS = new Set([
+  "boxing",
+  "jab",
+  "cross",
+  "hooks",
+  "boxing-combination",
+]);
+
+function containsLegacyBoxing(level: GeneratedLevel): boolean {
+  const exercises = [
+    ...level.routine.blocks.flatMap((block) => block.exercises),
+    ...(level.routine.overload?.exercises ?? []),
+  ];
+
+  return exercises.some((exercise) =>
+    LEGACY_BOXING_DETECTORS.has(exercise.detector),
+  );
+}
+
 /*
  * Se conserva esta estructura para que BattlePage pueda seguir
  * enviando el rendimiento del usuario sin necesitar cambios.
@@ -327,7 +346,29 @@ export const useGeneratedLevelStore =
       }),
       {
         name: "la-forja-generated-levels",
-        version: 2,
+        version: 3,
+        migrate: (persistedState: unknown) => {
+          const previous =
+            (persistedState ?? {}) as Partial<GeneratedLevelStore>;
+
+          const safeLevels = Array.isArray(previous.levels)
+            ? previous.levels.filter(
+                (level) => !containsLegacyBoxing(level),
+              )
+            : [];
+
+          const activeLevelId = safeLevels.some(
+            (level) => level.id === previous.activeLevelId,
+          )
+            ? previous.activeLevelId ?? null
+            : null;
+
+          return {
+            ...previous,
+            levels: safeLevels,
+            activeLevelId,
+          } as GeneratedLevelStore;
+        },
         partialize: (state) => ({
           levels: state.levels,
           activeLevelId: state.activeLevelId,

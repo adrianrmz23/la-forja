@@ -26,19 +26,15 @@ export interface ExerciseCatalogEntry {
   exerciseId: ExerciseId;
   name: string;
   instructions: string;
-
   mode: ExerciseMode;
   countUnit: ExerciseCountUnit;
   detector: ExerciseDetector;
-
   met: number;
   estimatedSecondsPerRep: number;
   baseRestSeconds: number;
   equipment?: "none" | "optional-dumbbells";
-
   themes: LevelTheme[];
   stages: RoutineExerciseStage[];
-
   targets: Record<ProceduralDifficulty, ExerciseTargetRange>;
 }
 
@@ -48,7 +44,7 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     exerciseId: "active-march",
     name: "Marcha activa",
     instructions:
-      "Marcha elevando las rodillas de forma alternada y acompaña cada paso con el movimiento natural de los brazos.",
+      "Marcha elevando las rodillas de forma alternada y acompaña cada paso con los brazos.",
     mode: "repetitions",
     countUnit: "step",
     detector: "march",
@@ -64,19 +60,39 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     },
   },
   {
+    key: "step-jack",
+    exerciseId: "step-jack",
+    name: "Step jacks",
+    instructions:
+      "Da un paso lateral mientras elevas los brazos y regresa al centro. No necesitas saltar.",
+    mode: "repetitions",
+    countUnit: "repetition",
+    detector: "step-jack",
+    met: 5,
+    estimatedSecondsPerRep: 1.8,
+    baseRestSeconds: 12,
+    themes: ["balanced", "cardio"],
+    stages: ["warmup", "main", "overload"],
+    targets: {
+      beginner: { minimum: 12, maximum: 20, step: 2 },
+      intermediate: { minimum: 18, maximum: 28, step: 2 },
+      advanced: { minimum: 24, maximum: 36, step: 2 },
+    },
+  },
+  {
     key: "high-knees",
     exerciseId: "high-knees",
     name: "Rodillas altas",
     instructions:
-      "Eleva las rodillas de manera alternada, mantén el abdomen firme y conserva un ritmo controlado.",
+      "Eleva las rodillas de manera alternada y mantén un ritmo controlado.",
     mode: "repetitions",
     countUnit: "step",
     detector: "high-knees",
     met: 8,
     estimatedSecondsPerRep: 0.8,
     baseRestSeconds: 18,
-    themes: ["balanced", "cardio", "boxing"],
-    stages: ["warmup", "main", "overload"],
+    themes: ["balanced", "cardio"],
+    stages: ["warmup", "main", "boss", "overload"],
     targets: {
       beginner: { minimum: 18, maximum: 30, step: 2 },
       intermediate: { minimum: 30, maximum: 46, step: 2 },
@@ -84,11 +100,31 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     },
   },
   {
+    key: "jumping-jack",
+    exerciseId: "jumping-jack",
+    name: "Jumping jacks",
+    instructions:
+      "Abre piernas y eleva los brazos, después regresa al centro.",
+    mode: "repetitions",
+    countUnit: "repetition",
+    detector: "jumping-jack",
+    met: 8,
+    estimatedSecondsPerRep: 1.3,
+    baseRestSeconds: 18,
+    themes: ["balanced", "cardio"],
+    stages: ["main", "boss", "overload"],
+    targets: {
+      beginner: { minimum: 12, maximum: 22, step: 2 },
+      intermediate: { minimum: 20, maximum: 34, step: 2 },
+      advanced: { minimum: 30, maximum: 46, step: 2 },
+    },
+  },
+  {
     key: "squat",
     exerciseId: "squat",
     name: "Sentadillas",
     instructions:
-      "Lleva la cadera hacia atrás, desciende con control y vuelve completamente a la posición de pie.",
+      "Lleva la cadera hacia atrás, baja con control y vuelve completamente de pie.",
     mode: "repetitions",
     countUnit: "repetition",
     detector: "squat",
@@ -108,7 +144,7 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     exerciseId: "reverse-lunge",
     name: "Desplantes alternados",
     instructions:
-      "Lleva una pierna hacia atrás, baja con control, vuelve al centro y alterna con la pierna contraria.",
+      "Lleva una pierna hacia atrás, baja con control y vuelve al centro.",
     mode: "repetitions",
     countUnit: "repetition",
     detector: "lunge",
@@ -124,11 +160,71 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     },
   },
   {
+    key: "calf-raise",
+    exerciseId: "calf-raise",
+    name: "Elevaciones de talones",
+    instructions:
+      "Eleva ambos talones, sube sobre las puntas y vuelve a apoyar con control.",
+    mode: "repetitions",
+    countUnit: "repetition",
+    detector: "calf-raise",
+    met: 4,
+    estimatedSecondsPerRep: 2,
+    baseRestSeconds: 14,
+    themes: ["balanced", "strength"],
+    stages: ["warmup", "main", "overload"],
+    targets: {
+      beginner: { minimum: 12, maximum: 20, step: 2 },
+      intermediate: { minimum: 18, maximum: 28, step: 2 },
+      advanced: { minimum: 24, maximum: 36, step: 2 },
+    },
+  },
+  {
+    key: "knee-to-elbow",
+    exerciseId: "knee-to-elbow",
+    name: "Rodilla al codo de pie",
+    instructions:
+      "Acerca una rodilla al brazo contrario. No es necesario tocar el codo.",
+    mode: "repetitions",
+    countUnit: "repetition",
+    detector: "knee-to-elbow",
+    met: 7,
+    estimatedSecondsPerRep: 1.8,
+    baseRestSeconds: 18,
+    themes: ["balanced", "cardio"],
+    stages: ["main", "boss", "overload"],
+    targets: {
+      beginner: { minimum: 10, maximum: 16, step: 2 },
+      intermediate: { minimum: 16, maximum: 24, step: 2 },
+      advanced: { minimum: 22, maximum: 32, step: 2 },
+    },
+  },
+  {
+    key: "lateral-step-squat",
+    exerciseId: "lateral-step-squat",
+    name: "Paso lateral con sentadilla",
+    instructions:
+      "Da un paso lateral, baja en sentadilla y vuelve al centro.",
+    mode: "repetitions",
+    countUnit: "repetition",
+    detector: "lateral-step-squat",
+    met: 7,
+    estimatedSecondsPerRep: 3,
+    baseRestSeconds: 22,
+    themes: ["balanced", "strength", "cardio"],
+    stages: ["main", "boss"],
+    targets: {
+      beginner: { minimum: 6, maximum: 10, step: 2 },
+      intermediate: { minimum: 10, maximum: 16, step: 2 },
+      advanced: { minimum: 14, maximum: 20, step: 2 },
+    },
+  },
+  {
     key: "biceps-curl",
     exerciseId: "biceps-curl",
     name: "Curl de bíceps",
     instructions:
-      "Mantén los codos cerca del torso, flexiona ambos brazos y vuelve a extenderlos con control. Puedes usar mancuernas ligeras o hacerlo sin peso.",
+      "Flexiona uno o ambos brazos y vuelve a extenderlos. Las mancuernas son opcionales.",
     mode: "repetitions",
     countUnit: "repetition",
     detector: "biceps-curl",
@@ -149,7 +245,7 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     exerciseId: "shoulder-press",
     name: "Press de hombros",
     instructions:
-      "Comienza con las manos a la altura de los hombros, empuja hacia arriba y regresa lentamente. Las mancuernas son opcionales.",
+      "Empuja ambos brazos arriba y regresa a los hombros. Las mancuernas son opcionales.",
     mode: "repetitions",
     countUnit: "repetition",
     detector: "shoulder-press",
@@ -170,7 +266,7 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     exerciseId: "lateral-raise",
     name: "Elevaciones laterales",
     instructions:
-      "Eleva ambos brazos hacia los lados hasta la altura de los hombros y bájalos con control. Empieza sin peso o con mancuernas muy ligeras.",
+      "Eleva los brazos hacia los lados hasta una altura cómoda y bájalos con control.",
     mode: "repetitions",
     countUnit: "repetition",
     detector: "lateral-raise",
@@ -187,103 +283,45 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     },
   },
   {
-    key: "jab",
-    exerciseId: "jab",
-    name: "Jabs",
+    key: "front-raise",
+    exerciseId: "front-raise",
+    name: "Elevaciones frontales",
     instructions:
-      "Extiende el brazo delantero y regresa con rapidez a la posición de guardia.",
+      "Eleva ambos brazos al frente hasta cerca de los hombros y bájalos con control.",
     mode: "repetitions",
-    countUnit: "punch",
-    detector: "jab",
-    met: 7,
-    estimatedSecondsPerRep: 1.2,
-    baseRestSeconds: 15,
-    themes: ["balanced", "cardio", "boxing"],
-    stages: ["main", "boss"],
-    targets: {
-      beginner: { minimum: 12, maximum: 20, step: 2 },
-      intermediate: { minimum: 20, maximum: 30, step: 2 },
-      advanced: { minimum: 28, maximum: 40, step: 2 },
-    },
-  },
-  {
-    key: "cross",
-    exerciseId: "cross",
-    name: "Cross",
-    instructions:
-      "Extiende el brazo posterior, acompaña el golpe con una rotación ligera del torso y regresa a guardia.",
-    mode: "repetitions",
-    countUnit: "punch",
-    detector: "cross",
-    met: 7.5,
-    estimatedSecondsPerRep: 1.2,
-    baseRestSeconds: 15,
-    themes: ["balanced", "cardio", "boxing"],
-    stages: ["main", "boss"],
-    targets: {
-      beginner: { minimum: 12, maximum: 20, step: 2 },
-      intermediate: { minimum: 20, maximum: 30, step: 2 },
-      advanced: { minimum: 28, maximum: 40, step: 2 },
-    },
-  },
-  {
-    key: "hooks",
-    exerciseId: "hooks",
-    name: "Ganchos alternados",
-    instructions:
-      "Alterna ganchos de izquierda y derecha con el codo flexionado y acompaña cada golpe con el torso.",
-    mode: "repetitions",
-    countUnit: "punch",
-    detector: "hooks",
-    met: 8,
-    estimatedSecondsPerRep: 1.5,
-    baseRestSeconds: 18,
-    themes: ["balanced", "cardio", "boxing"],
-    stages: ["main", "boss", "overload"],
-    targets: {
-      beginner: { minimum: 10, maximum: 16, step: 2 },
-      intermediate: { minimum: 16, maximum: 24, step: 2 },
-      advanced: { minimum: 22, maximum: 32, step: 2 },
-    },
-  },
-  {
-    key: "jab-cross",
-    exerciseId: "jab-cross",
-    name: "Jab–cross",
-    instructions:
-      "Completa primero el jab y después el cross. La combinación cuenta al terminar ambos golpes en orden.",
-    mode: "combinations",
-    countUnit: "combination",
-    detector: "boxing-combination",
-    met: 8.5,
-    estimatedSecondsPerRep: 2.3,
+    countUnit: "repetition",
+    detector: "front-raise",
+    met: 4.8,
+    estimatedSecondsPerRep: 3.2,
     baseRestSeconds: 20,
-    themes: ["balanced", "cardio", "boxing"],
-    stages: ["main", "boss", "overload"],
+    equipment: "optional-dumbbells",
+    themes: ["balanced", "strength"],
+    stages: ["main", "overload"],
     targets: {
       beginner: { minimum: 6, maximum: 10, step: 2 },
-      intermediate: { minimum: 10, maximum: 16, step: 2 },
-      advanced: { minimum: 14, maximum: 22, step: 2 },
+      intermediate: { minimum: 8, maximum: 14, step: 2 },
+      advanced: { minimum: 10, maximum: 16, step: 2 },
     },
   },
   {
-    key: "jab-cross-hook",
-    exerciseId: "boxing-combination",
-    name: "Jab–cross–gancho",
+    key: "squat-to-press",
+    exerciseId: "squat-to-press",
+    name: "Sentadilla con press",
     instructions:
-      "Realiza jab, cross y gancho en ese orden antes de regresar completamente a guardia.",
-    mode: "combinations",
-    countUnit: "combination",
-    detector: "boxing-combination",
-    met: 9.2,
-    estimatedSecondsPerRep: 3,
+      "Haz una sentadilla, vuelve de pie y termina con un press por encima de los hombros.",
+    mode: "repetitions",
+    countUnit: "repetition",
+    detector: "squat-to-press",
+    met: 8,
+    estimatedSecondsPerRep: 4.5,
     baseRestSeconds: 25,
-    themes: ["balanced", "boxing"],
+    equipment: "optional-dumbbells",
+    themes: ["balanced", "strength", "cardio"],
     stages: ["main", "boss", "overload"],
     targets: {
-      beginner: { minimum: 4, maximum: 8, step: 2 },
-      intermediate: { minimum: 8, maximum: 14, step: 2 },
-      advanced: { minimum: 12, maximum: 18, step: 2 },
+      beginner: { minimum: 5, maximum: 8, step: 1 },
+      intermediate: { minimum: 8, maximum: 12, step: 1 },
+      advanced: { minimum: 10, maximum: 16, step: 1 },
     },
   },
 ];
@@ -292,11 +330,13 @@ export function getExercisesForStage(
   stage: RoutineExerciseStage,
   theme?: LevelTheme,
 ): ExerciseCatalogEntry[] {
+  const safeTheme = theme === "boxing" ? "cardio" : theme;
+
   return exerciseCatalog.filter((exercise) => {
     if (!exercise.stages.includes(stage)) {
       return false;
     }
 
-    return theme ? exercise.themes.includes(theme) : true;
+    return safeTheme ? exercise.themes.includes(safeTheme) : true;
   });
 }

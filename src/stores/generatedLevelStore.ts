@@ -32,6 +32,17 @@ function containsLegacyBoxing(level: GeneratedLevel): boolean {
   );
 }
 
+function removeRoutineOverload(level: GeneratedLevel): GeneratedLevel {
+  const routine = { ...level.routine };
+
+  delete routine.overload;
+
+  return {
+    ...level,
+    routine,
+  };
+}
+
 /*
  * Se conserva esta estructura para que BattlePage pueda seguir
  * enviando el rendimiento del usuario sin necesitar cambios.
@@ -346,15 +357,17 @@ export const useGeneratedLevelStore =
       }),
       {
         name: "la-forja-generated-levels",
-        version: 3,
+        version: 4,
         migrate: (persistedState: unknown) => {
           const previous =
             (persistedState ?? {}) as Partial<GeneratedLevelStore>;
 
           const safeLevels = Array.isArray(previous.levels)
-            ? previous.levels.filter(
-                (level) => !containsLegacyBoxing(level),
-              )
+            ? previous.levels
+                .filter(
+                  (level) => !containsLegacyBoxing(level),
+                )
+                .map(removeRoutineOverload)
             : [];
 
           const activeLevelId = safeLevels.some(

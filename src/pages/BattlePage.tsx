@@ -385,8 +385,6 @@ function BattlePage() {
 
     currentStepProgress,
     mandatoryRoutineProgress,
-    mandatoryRoutineComplete,
-
     currentMet,
 
     isComplete: battleWon,
@@ -479,6 +477,10 @@ function BattlePage() {
     playerReadyRef.current = playerReady;
   }, [playerReady]);
 
+  /*
+   * Se conserva como referencia visual para comparar la estimación
+   * de la app, pero ya no es una condición para terminar la misión.
+   */
   const calorieGoal = Math.max(
     MINIMUM_ROUTINE_CALORIES,
     profile.minimumCalorieGoal || MINIMUM_ROUTINE_CALORIES,
@@ -504,15 +506,13 @@ function BattlePage() {
   );
 
   /*
-   * La rutina principal ocupa el 95% del combate.
-   * La sobrecarga conserva al enemigo con vida hasta
-   * que la meta calórica realmente sea alcanzada.
+   * El progreso del enemigo depende únicamente de los bloques
+   * y ejercicios completados. La estimación calórica se muestra
+   * como referencia, pero no bloquea la victoria.
    */
   const routineProgress = battleWon
     ? 100
-    : mandatoryRoutineComplete
-      ? Math.min(99, 95 + calorieProgress * 0.04)
-      : mandatoryRoutineProgress * 0.95;
+    : mandatoryRoutineProgress;
 
   const routineProgressRounded = Math.round(routineProgress);
 
@@ -659,7 +659,7 @@ function BattlePage() {
       : "Sobrecarga automática"
     : nextExercise
       ? `${nextExercise.name}${nextExerciseGoal ? ` · ${nextExerciseGoal}` : ""}`
-      : "Evaluar meta calórica";
+      : "Completar rutina";
 
   const mobileRoundLabel = isOverload
     ? `Extra ${overloadRound}`
@@ -2526,7 +2526,7 @@ function BattlePage() {
                   ? estimatedCalories >= calorieGoal
                     ? "Victoria"
                     : "Sobrecarga automática"
-                  : nextExercise?.name ?? "Evaluar meta calórica"}
+                  : nextExercise?.name ?? "Completar rutina"}
               </strong>
             </div>
           </div>
@@ -2567,7 +2567,7 @@ function BattlePage() {
 
           <div className="calorie-goal-progress">
             <div className="calorie-goal-progress__labels">
-              <span>Meta mínima de rutina</span>
+              <span>Referencia calórica estimada</span>
 
               <strong>
                 {estimatedCalories.toFixed(1)} / {calorieGoal} kcal
@@ -2732,9 +2732,8 @@ function BattlePage() {
           )}
 
           <p className="battle-controls__note">
-            La rutina principal se completa por movimientos válidos. Si la meta
-            calórica queda pendiente, la Forja añade rondas de sobrecarga
-            automáticamente hasta alcanzarla.
+            La misión termina al completar todos los movimientos de la rutina.
+            Las calorías son una estimación y no generan ejercicios adicionales.
           </p>
         </section>
       </div>
@@ -2758,8 +2757,8 @@ function BattlePage() {
             <h2 id="victory-title">{missionName} superado</h2>
 
             <p>
-              Has completado todos los bloques de {missionName}, alcanzaste
-              la meta calórica y derrotaste a {enemyName}.
+              Has completado todos los bloques de {missionName} y derrotaste a
+              {" "}{enemyName}. Las calorías mostradas son una estimación de la app.
             </p>
 
             <div className="victory-results">
@@ -2877,7 +2876,7 @@ function BattlePage() {
                   : nextLevelSource === "procedural"
                     ? "El siguiente nivel fue creado mediante el generador procedural de La Forja."
                     : nextLevelGenerationError ??
-                      `La victoria se confirmó al superar ${calorieGoal} kcal estimadas.`}
+                      `Rutina completada con ${estimatedCalories.toFixed(1)} kcal estimadas por la app.`}
             </p>
           </div>
         </section>

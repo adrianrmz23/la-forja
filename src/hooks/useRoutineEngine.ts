@@ -8,7 +8,6 @@ import {
 import type {
   ExerciseMode,
   RoutineExercise,
-  RoutineOverloadConfig,
   WorkoutRoutine,
 } from "../types/routine.ts";
 
@@ -114,78 +113,12 @@ function buildBaseRoutineSteps(routine: WorkoutRoutine): RoutineStep[] {
   return steps;
 }
 
-function buildOverloadRoundSteps(
-  overload: RoutineOverloadConfig,
-  round: number,
-): RoutineStep[] {
-  const steps: RoutineStep[] = [];
-  const transitionRest =
-    round === 1
-      ? overload.entryRestSeconds
-      : overload.betweenRoundsRestSeconds;
-
-  const firstExercise = overload.exercises[0];
-
-  if (transitionRest > 0 && firstExercise) {
-    steps.push({
-      kind: "rest",
-      key: `${overload.id}-round-${round}-entry-rest`,
-      blockId: overload.id,
-      blockName: overload.name,
-      round,
-      totalRounds: round,
-      duration: transitionRest,
-      nextExerciseName: firstExercise.name,
-      stage: "overload",
-      overloadRound: round,
-    });
-  }
-
-  overload.exercises.forEach((exercise, index) => {
-    const exerciseStep: ExerciseRoutineStep = {
-      kind: "exercise",
-      key: `${overload.id}-round-${round}-${exercise.id}`,
-      blockId: overload.id,
-      blockName: overload.name,
-      round,
-      totalRounds: round,
-      exercise,
-      stage: "overload",
-      overloadRound: round,
-    };
-
-    steps.push(exerciseStep);
-
-    const nextExercise = overload.exercises[index + 1];
-
-    if (exercise.restSeconds <= 0 || !nextExercise) {
-      return;
-    }
-
-    steps.push({
-      kind: "rest",
-      key: `${exerciseStep.key}-rest`,
-      blockId: overload.id,
-      blockName: overload.name,
-      round,
-      totalRounds: round,
-      duration: exercise.restSeconds,
-      nextExerciseName: nextExercise.name,
-      stage: "overload",
-      overloadRound: round,
-    });
-  });
-
-  return steps;
-}
-
 export function useRoutineEngine({
   routine,
   isRunning,
   canCompleteRest,
   restReadyCountdownSeconds = 3,
   onStepComplete,
-  onOverloadRoundStart,
   onComplete,
 }: UseRoutineEngineOptions) {
   const baseSteps = useMemo(
@@ -218,16 +151,11 @@ export function useRoutineEngine({
   const canCompleteRestRef = useRef(canCompleteRest);
 
   const onStepCompleteRef = useRef(onStepComplete);
-  const onOverloadRoundStartRef = useRef(onOverloadRoundStart);
   const onCompleteRef = useRef(onComplete);
 
   useEffect(() => {
     onStepCompleteRef.current = onStepComplete;
   }, [onStepComplete]);
-
-  useEffect(() => {
-    onOverloadRoundStartRef.current = onOverloadRoundStart;
-  }, [onOverloadRoundStart]);
 
   useEffect(() => {
     onCompleteRef.current = onComplete;
@@ -251,14 +179,6 @@ export function useRoutineEngine({
     setIsComplete(true);
 
     onCompleteRef.current?.();
-  }, []);
-
-  const requestCalorieCheck = useCallback((nextStepIndex: number) => {
-    currentStepIndexRef.current = nextStepIndex;
-    awaitingCalorieCheckRef.current = true;
-
-    setCurrentStepIndex(nextStepIndex);
-    setIsAwaitingCalorieCheck(true);
   }, []);
 
   const completeCurrentStep = useCallback(() => {
@@ -290,13 +210,20 @@ export function useRoutineEngine({
     setRestReadyCountdown(null);
 
     if (nextStepIndex >= availableSteps.length) {
-      requestCalorieCheck(nextStepIndex);
+      /*
+       * La rutina termina al completar todos sus ejercicios.
+       * Las calorías continúan mostrándose como una estimación,
+       * pero ya no bloquean la victoria ni agregan rondas extra.
+       */
+      currentStepIndexRef.current = nextStepIndex;
+      setCurrentStepIndex(nextStepIndex);
+      finishRoutine();
       return;
     }
 
     currentStepIndexRef.current = nextStepIndex;
     setCurrentStepIndex(nextStepIndex);
-  }, [requestCalorieCheck]);
+  }, [finishRoutine]);
 
   /*
    * Los descansos cuentan hasta cero. Al finalizar, esperan a que
@@ -484,64 +411,21 @@ export function useRoutineEngine({
   }, [registerMovement]);
 
   /*
-   * BattlePage llama esta función después de comparar las
-   * calorías actuales con la meta. Si no se alcanzó, el
-   * motor agrega una nueva ronda de sobrecarga.
+   * Se conserva por compatibilidad con BattlePage y versiones
+   * anteriores. El flujo actual termina al completar la rutina
+   * base, así que esta función normalmente no se ejecuta.
    */
   const resolveCalorieGoal = useCallback(
-    (goalReached: boolean) => {
-      if (
-        !awaitingCalorieCheckRef.current ||
-        completeRef.current
-      ) {
-        return;
-      }
-
-      awaitingCalorieCheckRef.current = false;
-      restWaitingRef.current = false;
-      restReadyCountdownRef.current = null;
-      setIsAwaitingCalorieCheck(false);
-      setIsRestWaitingForReady(false);
-      setRestReadyCountdown(null);
-
-      if (goalReached) {
+    (_goalReached: boolean) => {
+      /*
+       * Compatibilidad con versiones anteriores: aunque BattlePage
+       * intente resolver una meta, nunca se agregan ejercicios extra.
+       */
+      if (!completeRef.current) {
         finishRoutine();
-        return;
       }
-
-      const overload = routine.overload;
-
-      /* Una rutina sin configuración de sobrecarga finaliza normalmente. */
-      if (!overload || overload.exercises.length === 0) {
-        finishRoutine();
-        return;
-      }
-
-      const nextOverloadRound = overloadRoundRef.current + 1;
-      const overloadSteps = buildOverloadRoundSteps(
-        overload,
-        nextOverloadRound,
-      );
-
-      if (overloadSteps.length === 0) {
-        finishRoutine();
-        return;
-      }
-
-      const startIndex = stepsRef.current.length;
-      const nextSteps = [...stepsRef.current, ...overloadSteps];
-
-      stepsRef.current = nextSteps;
-      currentStepIndexRef.current = startIndex;
-      overloadRoundRef.current = nextOverloadRound;
-
-      setSteps(nextSteps);
-      setCurrentStepIndex(startIndex);
-      setOverloadRound(nextOverloadRound);
-
-      onOverloadRoundStartRef.current?.(nextOverloadRound);
     },
-    [finishRoutine, routine.overload],
+    [finishRoutine],
   );
 
   const resetRoutine = useCallback(() => {

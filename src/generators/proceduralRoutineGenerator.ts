@@ -1,5 +1,4 @@
 import {
-  exerciseCatalog,
   getExercisesForStage,
   type ExerciseCatalogEntry,
   type RoutineExerciseStage,
@@ -13,7 +12,6 @@ import type {
 import type {
   RoutineBlock,
   RoutineExercise,
-  RoutineOverloadConfig,
   WorkoutRoutine,
 } from "../types/routine.ts";
 import {
@@ -275,63 +273,6 @@ function estimateRoutineMinutes(blocks: RoutineBlock[]): number {
   return Math.max(10, Math.round(totalSeconds / 60));
 }
 
-function findCatalogEntry(key: string): ExerciseCatalogEntry {
-  const entry = exerciseCatalog.find(
-    (exercise) => exercise.key === key,
-  );
-
-  if (!entry) {
-    throw new Error(`No se encontró el ejercicio: ${key}.`);
-  }
-
-  return entry;
-}
-
-function buildOverload(
-  difficulty: ProceduralDifficulty,
-  random: SeededRandom,
-): RoutineOverloadConfig {
-  const preferredKeys = [
-    random.chance(0.55) ? "jumping-jack" : "step-jack",
-    "squat",
-    "knee-to-elbow",
-    random.pick([
-      "biceps-curl",
-      "shoulder-press",
-      "lateral-raise",
-      "front-raise",
-    ]),
-    "calf-raise",
-  ];
-
-  const entries = preferredKeys.map(findCatalogEntry);
-
-  return {
-    id: "procedural-overload",
-    name: "Sobrecarga de la Forja",
-    description:
-      "Ronda adicional por movimientos válidos para alcanzar la meta mínima de 250 kcal.",
-    entryRestSeconds: difficulty === "beginner" ? 35 : 30,
-    betweenRoundsRestSeconds:
-      difficulty === "advanced" ? 30 : 35,
-    exercises: entries.map((entry, index) => {
-      const exercise = createRoutineExercise(
-        entry,
-        difficulty,
-        "overload",
-        `overload-${index + 1}`,
-        random,
-      );
-
-      if (index === entries.length - 1) {
-        exercise.restSeconds = 0;
-      }
-
-      return exercise;
-    }),
-  };
-}
-
 function validateRoutine(routine: WorkoutRoutine): void {
   if (routine.minimumCalories < MINIMUM_ROUTINE_CALORIES) {
     throw new Error(
@@ -345,16 +286,9 @@ function validateRoutine(routine: WorkoutRoutine): void {
     );
   }
 
-  if (!routine.overload || routine.overload.exercises.length === 0) {
-    throw new Error(
-      "La rutina generada debe incluir una sobrecarga automática.",
-    );
-  }
-
-  const exercises = [
-    ...routine.blocks.flatMap((block) => block.exercises),
-    ...routine.overload.exercises,
-  ];
+  const exercises = routine.blocks.flatMap(
+    (block) => block.exercises,
+  );
 
   exercises.forEach((exercise) => {
     if (exercise.mode === "active_duration") {
@@ -504,7 +438,7 @@ export function generateProceduralLevel(
     id: routineId,
     name,
     description:
-      "Nivel procedural creado con ejercicios amplios y detectables, objetivos por repeticiones y sobrecarga automática.",
+      "Nivel procedural creado con ejercicios amplios y detectables. La misión termina al completar todos los bloques y las calorías se conservan como referencia estimada.",
     minimumCalories,
     plannedCalories: Math.max(
       minimumCalories + 25,
@@ -512,7 +446,6 @@ export function generateProceduralLevel(
     ),
     estimatedMinutes: estimateRoutineMinutes(blocks),
     blocks,
-    overload: buildOverload(options.difficulty, random),
   };
 
   validateRoutine(routine);
@@ -556,8 +489,5 @@ export function collectRecentExerciseIds(
           (exercise) => exercise.exerciseId,
         ),
       ),
-      ...(level.routine.overload?.exercises.map(
-        (exercise) => exercise.exerciseId,
-      ) ?? []),
     ]);
 }

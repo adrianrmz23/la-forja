@@ -17,6 +17,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Link } from "react-router";
+import "./TrainingPage.css";
 import { useProfileStore } from "../stores/profileStore.ts";
 import { useFreeWorkoutStore } from "../stores/freeWorkoutStore.ts";
 import {

@@ -1,0 +1,71 @@
+.quick-training-button {
+  position: fixed;
+  z-index: 90;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, calc(env(safe-area-inset-bottom) + 12px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 8px 15px 8px 8px;
+  border: 1px solid rgba(255, 128, 38, 0.42);
+  border-radius: 18px;
+  color: #fff5ec;
+  background: rgba(16, 15, 16, 0.96);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.48), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+  text-decoration: none;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.quick-training-button__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 41px;
+  height: 41px;
+  border-radius: 13px;
+  color: #180b03;
+  background: linear-gradient(135deg, #ff8a2d, #ef5f12);
+}
+
+.quick-training-button__copy {
+  min-width: 0;
+}
+
+.quick-training-button__copy small,
+.quick-training-button__copy strong {
+  display: flex;
+  align-items: center;
+}
+
+.quick-training-button__copy small {
+  gap: 4px;
+  color: #d98a4f;
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  font-weight: 900;
+}
+
+.quick-training-button__copy strong {
+  margin-top: 2px;
+  color: #fff5ec;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+  .quick-training-button {
+    right: 12px;
+    bottom: max(14px, calc(env(safe-area-inset-bottom) + 10px));
+    min-height: 54px;
+    padding-right: 13px;
+    border-radius: 16px;
+  }
+
+  .quick-training-button__icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+  }
+}

@@ -1,5 +1,6 @@
 import { Dumbbell, Sparkles } from "lucide-react";
 import { Link, useLocation } from "react-router";
+import "./QuickTrainingButton.css";
 
 function QuickTrainingButton() {
   const location = useLocation();

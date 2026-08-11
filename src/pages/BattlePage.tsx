@@ -31,6 +31,8 @@ import { Link, useParams } from "react-router";
 import { usePlayerStore } from "../stores/playerStore.ts";
 import { useProfileStore } from "../stores/profileStore.ts";
 import { useGeneratedLevelStore } from "../stores/generatedLevelStore.ts";
+import { useFreeWorkoutStore } from "../stores/freeWorkoutStore.ts";
+import { FREE_WORKOUT_LEVEL_ID } from "../types/freeWorkout.ts";
 
 import { useCamera } from "../hooks/useCamera.ts";
 import { usePoseLandmarker } from "../hooks/usePoseLandmarker.ts";
@@ -79,14 +81,20 @@ const DISTANCE_CUES: Record<string, string> = {
   march: "ALTERNA LAS PIERNAS",
   "high-knees": "ELEVA LAS RODILLAS",
   squat: "BAJA CON CONTROL",
-  lunge: "ALTERNA LOS DESPLANTES",
-  jab: "EXTIENDE Y VUELVE A GUARDIA",
-  cross: "GIRA Y REGRESA A GUARDIA",
-  hooks: "GIRA EL TORSO Y PROTEGE EL ROSTRO",
-  "boxing-combination": "COMPLETA LA COMBINACIÓN",
+  lunge: "BAJA Y REGRESA DE PIE",
+  "jumping-jack": "ABRE Y CIERRA CON RITMO",
+  "step-jack": "PASO LATERAL Y REGRESA",
+  "calf-raise": "SUBE A PUNTAS Y BAJA",
+  "knee-to-elbow": "ACERCA RODILLA Y BRAZO",
+  "squat-to-press": "SENTADILLA Y EMPUJA ARRIBA",
+  "march-press": "RODILLA ARRIBA Y PRESS",
+  "step-jack-press": "PASO LATERAL Y PRESS",
+  "squat-knee-drive": "SENTADILLA Y RODILLA ARRIBA",
+  "lateral-step-squat": "PASO LATERAL Y SENTADILLA",
   "biceps-curl": "FLEXIONA Y BAJA CON CONTROL",
   "shoulder-press": "EMPUJA ARRIBA Y REGRESA",
-  "lateral-raise": "ELEVA HASTA LOS HOMBROS",
+  "lateral-raise": "ELEVA A LOS LADOS Y BAJA",
+  "front-raise": "ELEVA AL FRENTE Y BAJA",
 };
 
 interface BattleFeedback {
@@ -313,6 +321,17 @@ function BattlePage() {
 
   const profile = useProfileStore((state) => state.profile);
 
+  const activeFreeWorkout = useFreeWorkoutStore(
+    (state) => state.activeWorkout,
+  );
+
+  const completeFreeWorkout = useFreeWorkoutStore(
+    (state) => state.completeWorkout,
+  );
+
+  const isFreeWorkout = routeLevelId === FREE_WORKOUT_LEVEL_ID;
+  const missingFreeWorkout = isFreeWorkout && !activeFreeWorkout;
+
   const generatedLevels = useGeneratedLevelStore(
     (state) => state.levels,
   );
@@ -329,26 +348,43 @@ function BattlePage() {
     (state) => state.ensureNextLevel,
   );
 
-  const {
-    levelId: resolvedLevelId,
-    routine,
-    generatedLevel,
-  } = resolveRoutineByLevelId(
-    routeLevelId,
+  const campaignResolution = resolveRoutineByLevelId(
+    isFreeWorkout ? STATIC_LEVEL_ID : routeLevelId,
     generatedLevels,
   );
 
+  const resolvedLevelId = isFreeWorkout
+    ? FREE_WORKOUT_LEVEL_ID
+    : campaignResolution.levelId;
+
+  const routine =
+    isFreeWorkout && activeFreeWorkout
+      ? activeFreeWorkout.routine
+      : campaignResolution.routine;
+
+  const generatedLevel = isFreeWorkout
+    ? null
+    : campaignResolution.generatedLevel;
+
   const missionSequence = generatedLevel?.sequence ?? 1;
-  const missionName = generatedLevel?.name ?? "El despertar";
-  const locationName =
-    generatedLevel?.locationName ?? "Ruinas de la Forja";
-  const enemyName =
-    generatedLevel?.enemyName ?? "Centinela de Ceniza";
-  const enemyTitle =
-    generatedLevel?.enemyTitle ?? "Guardián de la rutina";
-  const experienceReward =
-    generatedLevel?.experienceReward ?? 100;
-  const coinReward = generatedLevel?.coinReward ?? 25;
+  const missionName = isFreeWorkout
+    ? activeFreeWorkout?.routine.name ?? "Entrenamiento libre"
+    : generatedLevel?.name ?? "El despertar";
+  const locationName = isFreeWorkout
+    ? "Sala de entrenamiento"
+    : generatedLevel?.locationName ?? "Ruinas de la Forja";
+  const enemyName = isFreeWorkout
+    ? "Pulso de la Forja"
+    : generatedLevel?.enemyName ?? "Centinela de Ceniza";
+  const enemyTitle = isFreeWorkout
+    ? "Entrenamiento libre"
+    : generatedLevel?.enemyTitle ?? "Guardián de la rutina";
+  const experienceReward = isFreeWorkout
+    ? 0
+    : generatedLevel?.experienceReward ?? 100;
+  const coinReward = isFreeWorkout
+    ? 0
+    : generatedLevel?.coinReward ?? 25;
 
   const {
     videoRef,
@@ -481,11 +517,13 @@ function BattlePage() {
    * Se conserva como referencia visual para comparar la estimación
    * de la app, pero ya no es una condición para terminar la misión.
    */
-  const calorieGoal = Math.max(
-    MINIMUM_ROUTINE_CALORIES,
-    profile.minimumCalorieGoal || MINIMUM_ROUTINE_CALORIES,
-    routine.minimumCalories,
-  );
+  const calorieGoal = isFreeWorkout
+    ? Math.max(1, routine.plannedCalories || 1)
+    : Math.max(
+        MINIMUM_ROUTINE_CALORIES,
+        profile.minimumCalorieGoal || MINIMUM_ROUTINE_CALORIES,
+        routine.minimumCalories,
+      );
 
   /*
    * Mantiene sincronizado el nivel abierto desde la URL.
@@ -494,11 +532,11 @@ function BattlePage() {
    */
   useEffect(() => {
     setActiveGeneratedLevel(
-      routeLevelId && routeLevelId !== STATIC_LEVEL_ID
+      !isFreeWorkout && routeLevelId && routeLevelId !== STATIC_LEVEL_ID
         ? routeLevelId
         : null,
     );
-  }, [routeLevelId, setActiveGeneratedLevel]);
+  }, [isFreeWorkout, routeLevelId, setActiveGeneratedLevel]);
 
   const calorieProgress = Math.min(
     (estimatedCalories / calorieGoal) * 100,
@@ -1577,30 +1615,40 @@ function BattlePage() {
    */
   function handleRoutineComplete() {
     playFeedbackSound("complete");
-    speakMessage("Rutina completada. Victoria.", true);
+    speakMessage(
+      isFreeWorkout
+        ? "Entrenamiento completado. Buen trabajo."
+        : "Rutina completada. Victoria.",
+      true,
+    );
 
     setPauseReason(null);
-
     setSessionStatus("finished");
-
     stopCamera();
-
     resetMovementDetectors();
+
+    if (isFreeWorkout) {
+      completeFreeWorkout({
+        activeSeconds,
+        estimatedCalories,
+        validMovements: validRepetitionsRef.current,
+        invalidMovements: invalidRepetitions,
+        bestCombo,
+      });
+
+      setEarnedFirstCompletionRewards(false);
+      setIsPreparingNextLevel(false);
+      setNextLevelId(null);
+      setNextLevelSource(null);
+      setNextLevelGenerationError(null);
+      return;
+    }
 
     const isFirstCompletion = completeMission({
       missionId: resolvedLevelId,
-
       validRepetitions: validRepetitionsRef.current,
-
       experienceReward,
-
       coinReward,
-
-      /*
-       * Los niveles procedurales administran su desbloqueo en
-       * generatedLevelStore. Conservamos este campo para mantener
-       * compatibilidad con playerStore.
-       */
       unlockMissionId: resolvedLevelId,
     });
 
@@ -1798,6 +1846,26 @@ function BattlePage() {
     resetMetrics();
   }
 
+  if (missingFreeWorkout) {
+    return (
+      <main className="battle-page free-workout-missing">
+        <section className="free-workout-missing__card">
+          <Flame size={38} />
+          <span>ENTRENAMIENTO LIBRE</span>
+          <h1>Primero crea una rutina</h1>
+          <p>
+            No hay un entrenamiento activo guardado. Elige tu tiempo y genera
+            una rutina antes de abrir la cámara.
+          </p>
+          <Link className="victory-button victory-button--primary" to="/training">
+            Crear entrenamiento
+            <Swords size={18} />
+          </Link>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main
       className={`battle-page ${mobileTrainingClassName}`}
@@ -1809,8 +1877,8 @@ function BattlePage() {
         <header className="battle-header">
           <Link
             className="battle-back"
-            to={`/mission/${resolvedLevelId}`}
-            aria-label="Abandonar rutina"
+            to={isFreeWorkout ? "/training" : `/mission/${resolvedLevelId}`}
+            aria-label={isFreeWorkout ? "Salir del entrenamiento" : "Abandonar rutina"}
           >
             <ArrowLeft size={21} />
           </Link>
@@ -1822,11 +1890,13 @@ function BattlePage() {
 
             <div>
               <span>
-                {isOverload
-                  ? `SOBRECARGA ${overloadRound}`
-                  : `NIVEL ${missionSequence
-                      .toString()
-                      .padStart(2, "0")}`}
+                {isFreeWorkout
+                  ? "ENTRENAMIENTO LIBRE"
+                  : isOverload
+                    ? `SOBRECARGA ${overloadRound}`
+                    : `NIVEL ${missionSequence
+                        .toString()
+                        .padStart(2, "0")}`}
               </span>
 
               <strong>{missionName}</strong>
@@ -2732,7 +2802,7 @@ function BattlePage() {
           )}
 
           <p className="battle-controls__note">
-            La misión termina al completar todos los movimientos de la rutina.
+            {isFreeWorkout ? "El entrenamiento" : "La misión"} termina al completar todos los movimientos de la rutina.
             Las calorías son una estimación y no generan ejercicios adicionales.
           </p>
         </section>
@@ -2752,13 +2822,18 @@ function BattlePage() {
               <Flame size={43} fill="currentColor" />
             </div>
 
-            <span className="victory-card__eyebrow">RUTINA COMPLETADA</span>
+            <span className="victory-card__eyebrow">
+              {isFreeWorkout ? "ENTRENAMIENTO COMPLETADO" : "RUTINA COMPLETADA"}
+            </span>
 
-            <h2 id="victory-title">{missionName} superado</h2>
+            <h2 id="victory-title">
+              {isFreeWorkout ? "Sesión terminada" : `${missionName} superado`}
+            </h2>
 
             <p>
-              Has completado todos los bloques de {missionName} y derrotaste a
-              {" "}{enemyName}. Las calorías mostradas son una estimación de la app.
+              {isFreeWorkout
+                ? `Completaste todos los bloques de ${missionName}. La sesión quedó registrada localmente y tu campaña permanece intacta.`
+                : `Has completado todos los bloques de ${missionName} y derrotaste a ${enemyName}. Las calorías mostradas son una estimación de la app.`}
             </p>
 
             <div className="victory-results">
@@ -2800,7 +2875,18 @@ function BattlePage() {
             </div>
 
             <div className="victory-rewards">
-              {earnedFirstCompletionRewards ? (
+              {isFreeWorkout ? (
+                <>
+                  <span>
+                    <CheckCircle2 size={17} />
+                    Entrenamiento registrado
+                  </span>
+                  <span>
+                    <Shield size={17} />
+                    La campaña no cambia
+                  </span>
+                </>
+              ) : earnedFirstCompletionRewards ? (
                 <>
                   <span>
                     <Sparkles size={17} />
@@ -2837,7 +2923,15 @@ function BattlePage() {
                 Repetir
               </button>
 
-              {nextLevelId ? (
+              {isFreeWorkout ? (
+                <Link
+                  className="victory-button victory-button--primary"
+                  to="/training"
+                >
+                  Crear otro
+                  <RefreshCw size={18} />
+                </Link>
+              ) : nextLevelId ? (
                 <Link
                   className="victory-button victory-button--primary"
                   onClick={() => {
@@ -2869,14 +2963,16 @@ function BattlePage() {
             </div>
 
             <p className="victory-card__note">
-              {isPreparingNextLevel
-                ? "La Forja está preparando una rutina nueva con los detectores disponibles."
-                : nextLevelSource === "ai"
-                  ? "El siguiente nivel fue generado y validado por las reglas de La Forja."
-                  : nextLevelSource === "procedural"
-                    ? "El siguiente nivel fue creado mediante el generador procedural de La Forja."
-                    : nextLevelGenerationError ??
-                      `Rutina completada con ${estimatedCalories.toFixed(1)} kcal estimadas por la app.`}
+              {isFreeWorkout
+                ? `Sesión guardada · ${estimatedCalories.toFixed(1)} kcal estimadas por La Forja · sin ejercicios adicionales.`
+                : isPreparingNextLevel
+                  ? "La Forja está preparando una rutina nueva con los detectores disponibles."
+                  : nextLevelSource === "ai"
+                    ? "El siguiente nivel fue generado y validado por las reglas de La Forja."
+                    : nextLevelSource === "procedural"
+                      ? "El siguiente nivel fue creado mediante el generador procedural de La Forja."
+                      : nextLevelGenerationError ??
+                        `Rutina completada con ${estimatedCalories.toFixed(1)} kcal estimadas por la app.`}
             </p>
           </div>
         </section>

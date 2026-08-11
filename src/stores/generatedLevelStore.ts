@@ -43,6 +43,41 @@ function removeRoutineOverload(level: GeneratedLevel): GeneratedLevel {
   };
 }
 
+function refreshProceduralRoutineVolume(
+  level: GeneratedLevel,
+): GeneratedLevel {
+  const cleaned = removeRoutineOverload(level);
+
+  if (cleaned.source !== "procedural") {
+    return cleaned;
+  }
+
+  try {
+    const regenerated = generateProceduralLevel({
+      levelNumber: cleaned.sequence,
+      difficulty: cleaned.difficulty,
+      minimumCalories: Math.max(
+        MINIMUM_ROUTINE_CALORIES,
+        cleaned.routine.minimumCalories,
+      ),
+      preferredTheme: cleaned.theme,
+      seed: cleaned.seed,
+      recentExerciseIds: [],
+    });
+
+    return {
+      ...cleaned,
+      routine: {
+        ...regenerated.routine,
+        id: cleaned.routine.id,
+        name: cleaned.routine.name,
+      },
+    };
+  } catch {
+    return cleaned;
+  }
+}
+
 /*
  * Se conserva esta estructura para que BattlePage pueda seguir
  * enviando el rendimiento del usuario sin necesitar cambios.
@@ -357,7 +392,7 @@ export const useGeneratedLevelStore =
       }),
       {
         name: "la-forja-generated-levels",
-        version: 4,
+        version: 5,
         migrate: (persistedState: unknown) => {
           const previous =
             (persistedState ?? {}) as Partial<GeneratedLevelStore>;
@@ -367,7 +402,7 @@ export const useGeneratedLevelStore =
                 .filter(
                   (level) => !containsLegacyBoxing(level),
                 )
-                .map(removeRoutineOverload)
+                .map(refreshProceduralRoutineVolume)
             : [];
 
           const activeLevelId = safeLevels.some(

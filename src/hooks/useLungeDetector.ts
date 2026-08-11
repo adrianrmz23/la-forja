@@ -47,10 +47,14 @@ const MINIMUM_KNEE_ANGLE_DROP = 16;
 const MAXIMUM_RETURN_HIP_DISTANCE = 0.022;
 
 const REQUIRED_BOTTOM_FRAMES = 2;
+const RETURN_STANDING_KNEE_ANGLE = 138;
+const REARM_STANDING_FRAMES = 3;
+const MINIMUM_REP_DURATION_MS = 250;
+const POST_REP_LOCK_MS = 350;
 const MOVEMENT_ACTIVE_MS = 900;
 const MOVEMENT_ANGLE_DELTA = 1;
 const MOVEMENT_HIP_DELTA = 0.0015;
-const COOLDOWN_MS = 350;
+const COOLDOWN_MS = 700;
 
 function isVisible(
   landmark: NormalizedLandmark | undefined,
@@ -135,6 +139,10 @@ export function useLungeDetector({
 
   const reachedBottomRef = useRef(false);
   const bottomFramesRef = useRef(0);
+  const cycleArmedRef = useRef(false);
+  const stableStandingFramesRef = useRef(0);
+  const descentStartedAtRef = useRef<number | null>(null);
+  const postRepetitionUnlockAtRef = useRef(0);
 
   const activeSideRef =
     useRef<LungeSide | null>(null);
@@ -171,6 +179,10 @@ export function useLungeDetector({
 
     reachedBottomRef.current = false;
     bottomFramesRef.current = 0;
+    cycleArmedRef.current = false;
+    stableStandingFramesRef.current = 0;
+    descentStartedAtRef.current = null;
+    postRepetitionUnlockAtRef.current = 0;
     activeSideRef.current = null;
     lastCountedSideRef.current = null;
     lastRepetitionAtRef.current = 0;
@@ -288,67 +300,133 @@ export function useLungeDetector({
         leftAngle >= STANDING_KNEE_ANGLE &&
         rightAngle >= STANDING_KNEE_ANGLE;
 
+      const returnedStanding =
+        leftAngle >= RETURN_STANDING_KNEE_ANGLE &&
+        rightAngle >= RETURN_STANDING_KNEE_ANGLE;
+
       if (standing) {
         if (baselineHipYRef.current === null) {
           baselineHipYRef.current = hipCenter.y;
           baselineLeftAngleRef.current = leftAngle;
           baselineRightAngleRef.current = rightAngle;
-        } else {
+        } else if (!reachedBottomRef.current) {
           baselineHipYRef.current =
             baselineHipYRef.current * 0.9 +
             hipCenter.y * 0.1;
 
           baselineLeftAngleRef.current =
-            (baselineLeftAngleRef.current ??
-              leftAngle) *
+            (baselineLeftAngleRef.current ?? leftAngle) *
               0.9 +
             leftAngle * 0.1;
 
           baselineRightAngleRef.current =
-            (baselineRightAngleRef.current ??
-              rightAngle) *
+            (baselineRightAngleRef.current ?? rightAngle) *
               0.9 +
             rightAngle * 0.1;
         }
+      }
 
+      if (returnedStanding) {
         if (
           reachedBottomRef.current &&
           activeSideRef.current
         ) {
           const side = activeSideRef.current;
+          const cycleDuration =
+            descentStartedAtRef.current === null
+              ? 0
+              : now - descentStartedAtRef.current;
           const cooldownFinished =
             now - lastRepetitionAtRef.current >=
             COOLDOWN_MS;
+          const durationValid =
+            cycleDuration >= MINIMUM_REP_DURATION_MS;
 
-          if (cooldownFinished) {
+          if (
+            cycleArmedRef.current &&
+            cooldownFinished &&
+            durationValid
+          ) {
             lastCountedSideRef.current = side;
             lastRepetitionAtRef.current = now;
             onValidRepetitionRef.current(side);
 
+            cycleArmedRef.current = false;
+            stableStandingFramesRef.current = 0;
+            postRepetitionUnlockAtRef.current =
+              now + POST_REP_LOCK_MS;
+
             setPhaseLabel("Desplante válido");
             setInstruction(
-              side === "left"
-                ? "Repetición registrada. Ahora intenta alternar con la derecha."
-                : "Repetición registrada. Ahora intenta alternar con la izquierda.",
+              "Repetición registrada. Mantente de pie un instante antes de la siguiente.",
+            );
+          } else {
+            setPhaseLabel("Regreso detectado");
+            setInstruction(
+              "Mantente de pie un instante para preparar la siguiente repetición.",
             );
           }
 
           reachedBottomRef.current = false;
           bottomFramesRef.current = 0;
           activeSideRef.current = null;
+          descentStartedAtRef.current = null;
           setActiveSide(null);
-        } else {
-          setPhaseLabel("Posición inicial");
-          setInstruction(
-            lastCountedSideRef.current === "left"
-              ? "Lleva la pierna derecha hacia atrás."
-              : lastCountedSideRef.current === "right"
-                ? "Lleva la pierna izquierda hacia atrás."
-                : "Lleva cualquiera de las piernas hacia atrás.",
-          );
+          setPhase("ready");
+          return;
         }
 
+        if (!cycleArmedRef.current) {
+          if (now >= postRepetitionUnlockAtRef.current) {
+            stableStandingFramesRef.current += 1;
+
+            if (
+              stableStandingFramesRef.current >=
+              REARM_STANDING_FRAMES
+            ) {
+              cycleArmedRef.current = true;
+              stableStandingFramesRef.current = 0;
+              setPhaseLabel("Listo para el siguiente");
+              setInstruction(
+                lastCountedSideRef.current === "left"
+                  ? "Puedes llevar la pierna derecha hacia atrás."
+                  : lastCountedSideRef.current === "right"
+                    ? "Puedes llevar la pierna izquierda hacia atrás."
+                    : "Lleva cualquiera de las piernas hacia atrás.",
+              );
+            } else {
+              setPhaseLabel("Estabilizando posición");
+              setInstruction(
+                "Mantente de pie un instante. No necesitas hacer nada extra.",
+              );
+            }
+          }
+
+          setPhase("ready");
+          return;
+        }
+
+        stableStandingFramesRef.current = 0;
         setPhase("ready");
+        setPhaseLabel("Posición inicial");
+        setInstruction(
+          lastCountedSideRef.current === "left"
+            ? "Lleva la pierna derecha hacia atrás."
+            : lastCountedSideRef.current === "right"
+              ? "Lleva la pierna izquierda hacia atrás."
+              : "Lleva cualquiera de las piernas hacia atrás.",
+        );
+        return;
+      }
+
+      stableStandingFramesRef.current = 0;
+
+      if (!cycleArmedRef.current) {
+        setPhase("ready");
+        setPhaseLabel("Vuelve de pie");
+        setInstruction(
+          "Regresa a una posición cómoda de pie antes del siguiente desplante.",
+        );
         return;
       }
 
@@ -395,6 +473,10 @@ export function useLungeDetector({
         );
 
       if (reachedDepth) {
+        if (descentStartedAtRef.current === null) {
+          descentStartedAtRef.current = now;
+        }
+
         if (
           activeSideRef.current === null ||
           activeSideRef.current ===

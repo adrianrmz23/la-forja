@@ -21,6 +21,9 @@ import { useStepJackDetector } from "./useStepJackDetector.ts";
 import { useCalfRaiseDetector } from "./useCalfRaiseDetector.ts";
 import { useKneeToElbowDetector } from "./useKneeToElbowDetector.ts";
 import { useSquatToPressDetector } from "./useSquatToPressDetector.ts";
+import { useMarchPressDetector } from "./useMarchPressDetector.ts";
+import { useStepJackPressDetector } from "./useStepJackPressDetector.ts";
+import { useSquatKneeDriveDetector } from "./useSquatKneeDriveDetector.ts";
 import { useLateralStepSquatDetector } from "./useLateralStepSquatDetector.ts";
 
 export type DetectedMovementKind = "repetition" | "combination";
@@ -296,6 +299,44 @@ export function useMovementDetectors({
     });
   }, [emitMovement]);
 
+  const handleMarchPressValid = useCallback(
+    (side: BodySide) => {
+      emitMovement({
+        kind: "repetition",
+        detector: "march-press",
+        label: "Marcha con press válida",
+        message: `Rodilla ${formatSide(side).toLowerCase()} y press registrados.`,
+        damage: 2,
+        side,
+      });
+    },
+    [emitMovement],
+  );
+
+  const handleStepJackPressValid = useCallback(() => {
+    emitMovement({
+      kind: "repetition",
+      detector: "step-jack-press",
+      label: "Step jack con press válido",
+      message: "Paso lateral y press registrados.",
+      damage: 2,
+    });
+  }, [emitMovement]);
+
+  const handleSquatKneeDriveValid = useCallback(
+    (side: BodySide) => {
+      emitMovement({
+        kind: "repetition",
+        detector: "squat-knee-drive",
+        label: "Sentadilla con rodilla válida",
+        message: `Sentadilla y rodilla ${formatSide(side).toLowerCase()} registradas.`,
+        damage: 3,
+        side,
+      });
+    },
+    [emitMovement],
+  );
+
   const handleLateralStepSquatValid = useCallback(
     (side: BodySide) => {
       emitMovement({
@@ -420,6 +461,21 @@ export function useMovementDetectors({
     onValidRepetition: handleSquatToPressValid,
   });
 
+  const marchPress = useMarchPressDetector({
+    enabled: enabled && detector === "march-press",
+    onValidRepetition: handleMarchPressValid,
+  });
+
+  const stepJackPress = useStepJackPressDetector({
+    enabled: enabled && detector === "step-jack-press",
+    onValidRepetition: handleStepJackPressValid,
+  });
+
+  const squatKneeDrive = useSquatKneeDriveDetector({
+    enabled: enabled && detector === "squat-knee-drive",
+    onValidRepetition: handleSquatKneeDriveValid,
+  });
+
   const lateralStepSquat = useLateralStepSquatDetector({
     enabled: enabled && detector === "lateral-step-squat",
     onValidRepetition: handleLateralStepSquatValid,
@@ -448,6 +504,9 @@ export function useMovementDetectors({
       calfRaise.processLandmarks(landmarks);
       kneeToElbow.processLandmarks(landmarks);
       squatToPress.processLandmarks(landmarks);
+      marchPress.processLandmarks(landmarks);
+      stepJackPress.processLandmarks(landmarks);
+      squatKneeDrive.processLandmarks(landmarks);
       lateralStepSquat.processLandmarks(landmarks);
     },
     [
@@ -465,10 +524,13 @@ export function useMovementDetectors({
       lateralStepSquat,
       lunge,
       march,
+      marchPress,
       processSquatLandmarks,
       shoulderPress,
+      squatKneeDrive,
       squatToPress,
       stepJack,
+      stepJackPress,
     ],
   );
 
@@ -490,6 +552,9 @@ export function useMovementDetectors({
     calfRaise.reset();
     kneeToElbow.reset();
     squatToPress.reset();
+    marchPress.reset();
+    stepJackPress.reset();
+    squatKneeDrive.reset();
     lateralStepSquat.reset();
   }, [
     bicepsCurl,
@@ -508,8 +573,11 @@ export function useMovementDetectors({
     jumpingJack,
     kneeToElbow,
     lateralStepSquat,
+    marchPress,
+    squatKneeDrive,
     squatToPress,
     stepJack,
+    stepJackPress,
   ]);
 
   const squatMovementActive =
@@ -554,6 +622,12 @@ export function useMovementDetectors({
         return kneeToElbow.isMovementActive;
       case "squat-to-press":
         return squatToPress.isMovementActive;
+      case "march-press":
+        return marchPress.isMovementActive;
+      case "step-jack-press":
+        return stepJackPress.isMovementActive;
+      case "squat-knee-drive":
+        return squatKneeDrive.isMovementActive;
       case "lateral-step-squat":
         return lateralStepSquat.isMovementActive;
       default:
@@ -769,6 +843,42 @@ export function useMovementDetectors({
       };
     }
 
+    if (detector === "march-press") {
+      return {
+        phase: marchPress.phase,
+        phaseLabel: marchPress.phaseLabel,
+        instruction: marchPress.instruction,
+        primaryLabel: "Rodilla activa",
+        primaryValue: formatSide(marchPress.activeSide),
+        secondaryLabel: "Rodilla / press",
+        secondaryValue: `${marchPress.kneeAngle ?? "--"}° / ${marchPress.pressAngle ?? "--"}°`,
+      };
+    }
+
+    if (detector === "step-jack-press") {
+      return {
+        phase: stepJackPress.phase,
+        phaseLabel: stepJackPress.phaseLabel,
+        instruction: stepJackPress.instruction,
+        primaryLabel: "Apertura de pies",
+        primaryValue: stepJackPress.stepRatio === null ? "--" : `${stepJackPress.stepRatio}x`,
+        secondaryLabel: "Ángulo de press",
+        secondaryValue: stepJackPress.pressAngle === null ? "--" : `${stepJackPress.pressAngle}°`,
+      };
+    }
+
+    if (detector === "squat-knee-drive") {
+      return {
+        phase: squatKneeDrive.phase,
+        phaseLabel: squatKneeDrive.phaseLabel,
+        instruction: squatKneeDrive.instruction,
+        primaryLabel: "Rodilla activa",
+        primaryValue: formatSide(squatKneeDrive.activeSide),
+        secondaryLabel: "Sentadilla / elevación",
+        secondaryValue: `${squatKneeDrive.kneeAngle ?? "--"}° / ${squatKneeDrive.driveAngle ?? "--"}°`,
+      };
+    }
+
     if (detector === "lateral-step-squat") {
       return {
         phase: lateralStepSquat.phase,
@@ -878,6 +988,23 @@ export function useMovementDetectors({
     lateralStepSquat.phase,
     lateralStepSquat.phaseLabel,
     lateralStepSquat.stepRatio,
+    marchPress.activeSide,
+    marchPress.instruction,
+    marchPress.kneeAngle,
+    marchPress.phase,
+    marchPress.phaseLabel,
+    marchPress.pressAngle,
+    squatKneeDrive.activeSide,
+    squatKneeDrive.driveAngle,
+    squatKneeDrive.instruction,
+    squatKneeDrive.kneeAngle,
+    squatKneeDrive.phase,
+    squatKneeDrive.phaseLabel,
+    stepJackPress.instruction,
+    stepJackPress.phase,
+    stepJackPress.phaseLabel,
+    stepJackPress.pressAngle,
+    stepJackPress.stepRatio,
     squatToPress.instruction,
     squatToPress.kneeAngle,
     squatToPress.phase,

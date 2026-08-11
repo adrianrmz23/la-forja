@@ -60,6 +60,9 @@ const REQUIRED_INDICES = [
  */
 const MINIMUM_ARM_VISIBILITY = 0.2;
 const REPETITION_COOLDOWN_MS = 330;
+const BICEPS_REPETITION_COOLDOWN_MS = 650;
+const BICEPS_REQUIRED_TARGET_FRAMES = 2;
+const BICEPS_REQUIRED_RESET_FRAMES = 3;
 const MOVEMENT_ACTIVE_MS = 950;
 const ANGLE_MOVEMENT_DELTA = 1;
 const WRIST_MOVEMENT_DELTA = 0.003;
@@ -528,8 +531,10 @@ export function useArmExerciseDetector({
   const cycleArmedRef = useRef(false);
   const targetFramesRef = useRef(0);
 
-  const leftBicepsArmedRef = useRef(false);
-  const rightBicepsArmedRef = useRef(false);
+  const bicepsCycleArmedRef = useRef(false);
+  const bicepsWaitingForResetRef = useRef(false);
+  const bicepsTargetFramesRef = useRef(0);
+  const bicepsResetFramesRef = useRef(0);
 
   const lastRepetitionAtRef = useRef(0);
   const lastMovementAtRef = useRef(0);
@@ -549,8 +554,10 @@ export function useArmExerciseDetector({
   const reset = useCallback(() => {
     cycleArmedRef.current = false;
     targetFramesRef.current = 0;
-    leftBicepsArmedRef.current = false;
-    rightBicepsArmedRef.current = false;
+    bicepsCycleArmedRef.current = false;
+    bicepsWaitingForResetRef.current = false;
+    bicepsTargetFramesRef.current = 0;
+    bicepsResetFramesRef.current = 0;
     lastRepetitionAtRef.current = 0;
     lastMovementAtRef.current = 0;
     wasEnabledRef.current = false;
@@ -699,70 +706,120 @@ export function useArmExerciseDetector({
           landmarks,
         );
 
-        if (leftReady) {
-          leftBicepsArmedRef.current = true;
-        }
-
-        if (rightReady) {
-          rightBicepsArmedRef.current = true;
-        }
-
-        const simultaneousTop =
-          leftTop &&
-          rightTop &&
+        /*
+         * Anti-conteo doble: una flexión solo puede contar una vez.
+         * Después de registrarla, el detector queda bloqueado hasta que
+         * los brazos regresen a la zona baja durante varios frames.
+         * Los umbrales de movimiento siguen siendo permisivos.
+         */
+        const bicepsReadyPose =
+          (leftReady && rightReady) ||
           (
-            leftBicepsArmedRef.current ||
-            rightBicepsArmedRef.current
+            (leftReady || rightReady) &&
+            measurements.leftElbowAngle >= 110 &&
+            measurements.rightElbowAngle >= 110 &&
+            !leftTop &&
+            !rightTop
           );
 
-        if (simultaneousTop) {
-          if (registerValidRepetition(now)) {
-            leftBicepsArmedRef.current = false;
-            rightBicepsArmedRef.current = false;
+        const bicepsTarget = leftTop || rightTop;
+
+        if (bicepsWaitingForResetRef.current) {
+          if (bicepsReadyPose) {
+            bicepsResetFramesRef.current += 1;
+
+            if (
+              bicepsResetFramesRef.current >=
+              BICEPS_REQUIRED_RESET_FRAMES
+            ) {
+              bicepsWaitingForResetRef.current = false;
+              bicepsCycleArmedRef.current = true;
+              bicepsResetFramesRef.current = 0;
+              bicepsTargetFramesRef.current = 0;
+
+              setPhase("ready");
+              setPhaseLabel("Posición inicial");
+              setInstruction(
+                "Brazos abajo. Ya puedes iniciar la siguiente repetición.",
+              );
+            } else {
+              setPhase("lowering");
+              setPhaseLabel("Confirmando regreso");
+              setInstruction(
+                "Termina de bajar los brazos para preparar la siguiente repetición.",
+              );
+            }
+          } else {
+            bicepsResetFramesRef.current = 0;
+            setPhase("lowering");
+            setPhaseLabel("Regresa los brazos");
+            setInstruction(
+              "Baja los brazos antes de iniciar otro curl.",
+            );
           }
 
           return;
         }
 
-        if (
-          leftTop &&
-          leftBicepsArmedRef.current
-        ) {
-          if (registerValidRepetition(now)) {
-            leftBicepsArmedRef.current = false;
-          }
+        if (bicepsReadyPose) {
+          bicepsCycleArmedRef.current = true;
+          bicepsTargetFramesRef.current = 0;
 
-          return;
-        }
-
-        if (
-          rightTop &&
-          rightBicepsArmedRef.current
-        ) {
-          if (registerValidRepetition(now)) {
-            rightBicepsArmedRef.current = false;
-          }
-
-          return;
-        }
-
-        if (leftTop || rightTop) {
-          setPhase("top");
-          setPhaseLabel("Flexión detectada");
-          setInstruction(getTopInstruction(exercise));
-          return;
-        }
-
-        if (leftReady || rightReady) {
           setPhase("ready");
           setPhaseLabel("Posición inicial");
           setInstruction(getReadyInstruction(exercise));
           return;
         }
 
-        setPhase("lifting");
-        setPhaseLabel("Flexionando brazos");
-        setInstruction(getLiftInstruction(exercise));
+        if (bicepsTarget && bicepsCycleArmedRef.current) {
+          bicepsTargetFramesRef.current += 1;
+
+          if (
+            bicepsTargetFramesRef.current >=
+              BICEPS_REQUIRED_TARGET_FRAMES &&
+            now - lastRepetitionAtRef.current >=
+              BICEPS_REPETITION_COOLDOWN_MS
+          ) {
+            if (registerValidRepetition(now)) {
+              bicepsCycleArmedRef.current = false;
+              bicepsWaitingForResetRef.current = true;
+              bicepsTargetFramesRef.current = 0;
+              bicepsResetFramesRef.current = 0;
+            }
+          } else {
+            setPhase("top");
+            setPhaseLabel("Flexión detectada");
+            setInstruction(
+              "Mantén un instante y después baja completamente.",
+            );
+          }
+
+          return;
+        }
+
+        bicepsTargetFramesRef.current = 0;
+
+        if (bicepsTarget) {
+          setPhase("top");
+          setPhaseLabel("Flexión detectada");
+          setInstruction(
+            "Baja primero los brazos para iniciar una nueva repetición.",
+          );
+          return;
+        }
+
+        if (bicepsCycleArmedRef.current) {
+          setPhase("lifting");
+          setPhaseLabel("Flexionando brazos");
+          setInstruction(getLiftInstruction(exercise));
+          return;
+        }
+
+        setPhase("ready");
+        setPhaseLabel("Busca posición inicial");
+        setInstruction(
+          "Baja un poco más los brazos para preparar el curl.",
+        );
         return;
       }
 

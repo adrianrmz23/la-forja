@@ -1088,3 +1088,230 @@
     transition: none;
   }
 }
+
+/* =========================================================
+   Editor individual de ejercicios
+   ========================================================= */
+.training-routine-exercise {
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.training-routine-exercise + .training-routine-exercise {
+  margin-top: 6px;
+}
+
+.training-routine-exercise--editing {
+  border-color: rgba(255, 126, 39, 0.26);
+  background: rgba(255, 126, 39, 0.035);
+}
+
+.training-routine-exercise__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 7px 8px 7px 10px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.training-routine-exercise__name {
+  min-width: 0;
+  color: #c9c1b8;
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.training-routine-exercise__main > strong {
+  color: #e5d9cd;
+  font-size: 0.69rem;
+  white-space: nowrap;
+}
+
+.training-routine-exercise__main > small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #a86f44;
+  font-size: 0.59rem;
+  white-space: nowrap;
+}
+
+.training-exercise-change-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  color: #b9afa6;
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 0.62rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.training-routine-exercise--editing .training-exercise-change-button {
+  border-color: rgba(255, 126, 39, 0.28);
+  color: #ff9a50;
+  background: rgba(255, 126, 39, 0.075);
+}
+
+.training-replacement-panel {
+  padding: 13px;
+  border-top: 1px solid rgba(255, 126, 39, 0.15);
+  background: linear-gradient(180deg, rgba(255, 126, 39, 0.05), rgba(8, 9, 11, 0.22));
+}
+
+.training-replacement-panel__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.training-replacement-panel__heading span,
+.training-replacement-panel__heading strong {
+  display: block;
+}
+
+.training-replacement-panel__heading span {
+  color: #c7763f;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.training-replacement-panel__heading strong {
+  margin-top: 3px;
+  font-size: 0.82rem;
+}
+
+.training-replacement-panel__heading > button {
+  padding: 5px 7px;
+  border: 0;
+  color: #8d857e;
+  background: transparent;
+  font-size: 0.62rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.training-replacement-panel > p {
+  margin: 9px 0 11px;
+  color: #777069;
+  font-size: 0.65rem;
+  line-height: 1.45;
+}
+
+.training-replacement-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.training-replacement-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px 10px;
+  align-items: start;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 10px;
+  color: #d5cdc4;
+  background: rgba(255, 255, 255, 0.025);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+
+.training-replacement-option > div {
+  min-width: 0;
+}
+
+.training-replacement-option strong,
+.training-replacement-option small {
+  display: block;
+}
+
+.training-replacement-option strong {
+  font-size: 0.72rem;
+}
+
+.training-replacement-option small {
+  display: -webkit-box;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #756f68;
+  font-size: 0.6rem;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.training-replacement-option > span {
+  color: #f0a36b;
+  font-size: 0.65rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.training-replacement-option > em {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #9a6845;
+  font-size: 0.57rem;
+  font-style: normal;
+}
+
+@media (hover: hover) {
+  .training-exercise-change-button:hover,
+  .training-replacement-option:hover {
+    border-color: rgba(255, 126, 39, 0.38);
+    background: rgba(255, 126, 39, 0.07);
+  }
+
+  .training-replacement-option:hover {
+    transform: translateY(-1px);
+  }
+}
+
+@media (max-width: 620px) {
+  .training-routine-exercise__main {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .training-routine-exercise__main > small {
+    display: none;
+  }
+
+  .training-exercise-change-button {
+    padding-inline: 7px;
+  }
+
+  .training-replacement-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 390px) {
+  .training-exercise-change-button {
+    width: 30px;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .training-exercise-change-button svg {
+    width: 14px;
+    height: 14px;
+  }
+}

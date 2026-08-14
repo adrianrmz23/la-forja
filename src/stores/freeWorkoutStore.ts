@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
   generateFreeWorkout,
+  replaceFreeWorkoutExercise,
   type GenerateFreeWorkoutOptions,
 } from "../generators/freeWorkoutGenerator.ts";
 import type {
@@ -17,6 +18,11 @@ interface FreeWorkoutStore {
   lastPreferences: FreeWorkoutPreferences | null;
 
   generateWorkout: (options: GenerateFreeWorkoutOptions) => FreeWorkoutPlan;
+  replaceExercise: (
+    blockId: string,
+    exerciseId: string,
+    replacementKey: string,
+  ) => FreeWorkoutPlan | null;
   setActiveWorkout: (workout: FreeWorkoutPlan | null) => void;
   completeWorkout: (metrics: FreeWorkoutCompletionMetrics) => void;
   clearActiveWorkout: () => void;
@@ -39,6 +45,24 @@ export const useFreeWorkoutStore = create<FreeWorkoutStore>()(
         });
 
         return workout;
+      },
+
+      replaceExercise(blockId, exerciseId, replacementKey) {
+        const workout = get().activeWorkout;
+
+        if (!workout) {
+          return null;
+        }
+
+        const updatedWorkout = replaceFreeWorkoutExercise(
+          workout,
+          blockId,
+          exerciseId,
+          replacementKey,
+        );
+
+        set({ activeWorkout: updatedWorkout });
+        return updatedWorkout;
       },
 
       setActiveWorkout(workout) {

@@ -448,6 +448,242 @@ function buildTemplates(
   return templates;
 }
 
+
+export interface FreeWorkoutReplacementOption {
+  key: string;
+  name: string;
+  instructions: string;
+  target: number;
+  countUnit: RoutineExercise["countUnit"];
+  equipment?: RoutineExercise["equipment"];
+}
+
+function getGroupsForKey(key: string): GroupName[] {
+  return (Object.entries(GROUPS) as Array<[GroupName, readonly string[]]>)
+    .filter(([, keys]) => keys.includes(key))
+    .map(([group]) => group);
+}
+
+function getCatalogEntryForExercise(
+  exercise: RoutineExercise,
+): ExerciseCatalogEntry | null {
+  return (
+    exerciseCatalog.find(
+      (entry) =>
+        entry.exerciseId === exercise.exerciseId &&
+        entry.detector === exercise.detector,
+    ) ?? null
+  );
+}
+
+function movementSeconds(exercise: RoutineExercise): number {
+  return exercise.mode === "active_duration"
+    ? exercise.target
+    : exercise.target * (exercise.estimatedSecondsPerRep ?? 2.5);
+}
+
+function createReplacementExercise(
+  currentExercise: RoutineExercise,
+  replacementEntry: ExerciseCatalogEntry,
+  preferences: FreeWorkoutPreferences,
+): RoutineExercise {
+  const base = createRoutineExercise(
+    replacementEntry,
+    "replacement",
+    0,
+    preferences,
+  );
+
+  const desiredMovementSeconds = Math.max(4, movementSeconds(currentExercise));
+  const range = replacementEntry.targets[preferences.difficulty];
+
+  let target: number;
+
+  if (replacementEntry.mode === "active_duration") {
+    target = Math.max(1, Math.round(desiredMovementSeconds));
+  } else {
+    const secondsPerRep = Math.max(
+      0.5,
+      replacementEntry.estimatedSecondsPerRep ?? 2.5,
+    );
+    const rawTarget = desiredMovementSeconds / secondsPerRep;
+    const stepped = Math.round(rawTarget / range.step) * range.step;
+    const minimum = Math.max(1, Math.round((range.minimum * 0.6) / range.step) * range.step);
+    const maximum = Math.max(range.maximum, range.maximum * 2.5);
+
+    target = clamp(stepped, minimum, maximum);
+  }
+
+  return {
+    ...base,
+    id: currentExercise.id,
+    target,
+    // Conservamos el descanso del hueco original para que cambiar un solo
+    // ejercicio no desconfigure la duración total de la rutina.
+    restSeconds: currentExercise.restSeconds,
+  };
+}
+
+function scoreReplacementCandidate(
+  candidate: ExerciseCatalogEntry,
+  currentEntry: ExerciseCatalogEntry | null,
+  blockId: string,
+  usedKeys: Set<string>,
+): number {
+  let score = 0;
+  const candidateGroups = getGroupsForKey(candidate.key);
+  const currentGroups = currentEntry ? getGroupsForKey(currentEntry.key) : [];
+  const sharedGroups = candidateGroups.filter((group) =>
+    currentGroups.includes(group),
+  ).length;
+
+  score += sharedGroups * 24;
+
+  if (!usedKeys.has(candidate.key)) {
+    score += 12;
+  }
+
+  if (currentEntry) {
+    score += Math.max(0, 8 - Math.abs(candidate.met - currentEntry.met) * 2);
+
+    if (candidate.equipment === currentEntry.equipment) {
+      score += 4;
+    }
+  }
+
+  if (blockId === "free-warmup" && candidateGroups.includes("warmup")) {
+    score += 30;
+  }
+
+  if (blockId === "free-compound" && candidateGroups.includes("compound")) {
+    score += 30;
+  }
+
+  return score;
+}
+
+export function getFreeWorkoutReplacementOptions(
+  workout: FreeWorkoutPlan,
+  blockId: string,
+  exerciseId: string,
+  limit = 4,
+): FreeWorkoutReplacementOption[] {
+  const block = workout.routine.blocks.find((item) => item.id === blockId);
+  const currentExercise = block?.exercises.find((item) => item.id === exerciseId);
+
+  if (!currentExercise) {
+    return [];
+  }
+
+  const currentEntry = getCatalogEntryForExercise(currentExercise);
+  const usedKeys = new Set(
+    workout.routine.blocks.flatMap((routineBlock) =>
+      routineBlock.exercises
+        .map((exercise) => getCatalogEntryForExercise(exercise)?.key)
+        .filter((key): key is string => Boolean(key)),
+    ),
+  );
+
+  return getEligibleCatalog(workout.preferences)
+    .filter((entry) => entry.key !== currentEntry?.key)
+    .map((entry) => ({
+      entry,
+      score: scoreReplacementCandidate(entry, currentEntry, blockId, usedKeys),
+    }))
+    .sort((first, second) => {
+      if (second.score !== first.score) {
+        return second.score - first.score;
+      }
+
+      return first.entry.name.localeCompare(second.entry.name, "es");
+    })
+    .slice(0, Math.max(1, limit))
+    .map(({ entry }) => {
+      const replacement = createReplacementExercise(
+        currentExercise,
+        entry,
+        workout.preferences,
+      );
+
+      return {
+        key: entry.key,
+        name: replacement.name,
+        instructions: replacement.instructions,
+        target: replacement.target,
+        countUnit: replacement.countUnit,
+        equipment: replacement.equipment,
+      };
+    });
+}
+
+export function replaceFreeWorkoutExercise(
+  workout: FreeWorkoutPlan,
+  blockId: string,
+  exerciseId: string,
+  replacementKey: string,
+): FreeWorkoutPlan {
+  const replacementEntry = getEligibleCatalog(workout.preferences).find(
+    (entry) => entry.key === replacementKey,
+  );
+
+  if (!replacementEntry) {
+    return workout;
+  }
+
+  let changed = false;
+
+  const blocks = workout.routine.blocks.map((block) => {
+    if (block.id !== blockId) {
+      return block;
+    }
+
+    return {
+      ...block,
+      exercises: block.exercises.map((exercise) => {
+        if (exercise.id !== exerciseId) {
+          return exercise;
+        }
+
+        const currentEntry = getCatalogEntryForExercise(exercise);
+
+        if (currentEntry?.key === replacementKey) {
+          return exercise;
+        }
+
+        changed = true;
+        return createReplacementExercise(
+          exercise,
+          replacementEntry,
+          workout.preferences,
+        );
+      }),
+    };
+  });
+
+  if (!changed) {
+    return workout;
+  }
+
+  const estimatedSeconds = estimateRoutineSeconds(blocks);
+  const estimatedMinutes = Math.max(1, Math.round(estimatedSeconds / 60));
+  const estimatedCalories = estimateCalories(
+    blocks,
+    workout.preferences.weightKg,
+  );
+
+  return {
+    ...workout,
+    estimatedMinutes,
+    estimatedCalories,
+    routine: {
+      ...workout.routine,
+      estimatedMinutes,
+      plannedCalories: estimatedCalories,
+      blocks,
+    },
+  };
+}
+
 export interface GenerateFreeWorkoutOptions
   extends Omit<FreeWorkoutPreferences, "targetMinutes"> {
   targetMinutes: number;

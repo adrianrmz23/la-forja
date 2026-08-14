@@ -20,6 +20,7 @@ import { Link } from "react-router";
 import "./TrainingPage.css";
 import { useProfileStore } from "../stores/profileStore.ts";
 import { useFreeWorkoutStore } from "../stores/freeWorkoutStore.ts";
+import { getFreeWorkoutReplacementOptions } from "../generators/freeWorkoutGenerator.ts";
 import {
   FREE_WORKOUT_LEVEL_ID,
   type FreeWorkoutFocus,
@@ -85,11 +86,25 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
+function formatTargetUnit(countUnit: string): string {
+  switch (countUnit) {
+    case "step":
+      return "pasos";
+    case "combination":
+      return "combinaciones";
+    case "punch":
+      return "golpes";
+    default:
+      return "reps";
+  }
+}
+
 function TrainingPage() {
   const profile = useProfileStore((state) => state.profile);
   const activeWorkout = useFreeWorkoutStore((state) => state.activeWorkout);
   const history = useFreeWorkoutStore((state) => state.history);
   const generateWorkout = useFreeWorkoutStore((state) => state.generateWorkout);
+  const replaceExercise = useFreeWorkoutStore((state) => state.replaceExercise);
 
   const [targetMinutes, setTargetMinutes] = useState(
     activeWorkout?.targetMinutes ?? 30,
@@ -104,6 +119,11 @@ function TrainingPage() {
   const [hasDumbbells, setHasDumbbells] = useState(
     activeWorkout?.preferences.hasDumbbells ?? true,
   );
+
+  const [replacementTarget, setReplacementTarget] = useState<{
+    blockId: string;
+    exerciseId: string;
+  } | null>(null);
 
   const selectedPreset = TIME_PRESETS.includes(
     targetMinutes as (typeof TIME_PRESETS)[number],
@@ -129,7 +149,22 @@ function TrainingPage() {
     return { blocks, exercises, rounds };
   }, [activeWorkout]);
 
+  const replacementOptions = useMemo(() => {
+    if (!activeWorkout || !replacementTarget) {
+      return [];
+    }
+
+    return getFreeWorkoutReplacementOptions(
+      activeWorkout,
+      replacementTarget.blockId,
+      replacementTarget.exerciseId,
+      4,
+    );
+  }, [activeWorkout, replacementTarget]);
+
   function buildWorkout() {
+    setReplacementTarget(null);
+
     const customValue = Number(customMinutes);
     const resolvedMinutes =
       customMinutes.trim() && Number.isFinite(customValue)
@@ -387,20 +422,113 @@ function TrainingPage() {
                       </div>
 
                       <div className="training-routine-exercises">
-                        {block.exercises.map((exercise) => (
-                          <div key={exercise.id}>
-                            <span>{exercise.name}</span>
-                            <strong>
-                              {exercise.target} {exercise.countUnit === "step" ? "pasos" : "reps"}
-                            </strong>
-                            {exercise.equipment === "optional-dumbbells" && (
-                              <small>
-                                <Dumbbell size={12} />
-                                opcional
-                              </small>
-                            )}
-                          </div>
-                        ))}
+                        {block.exercises.map((exercise) => {
+                          const isReplacing =
+                            replacementTarget?.blockId === block.id &&
+                            replacementTarget.exerciseId === exercise.id;
+
+                          return (
+                            <div
+                              className={`training-routine-exercise ${
+                                isReplacing ? "training-routine-exercise--editing" : ""
+                              }`}
+                              key={exercise.id}
+                            >
+                              <div className="training-routine-exercise__main">
+                                <span className="training-routine-exercise__name">
+                                  {exercise.name}
+                                </span>
+
+                                <strong>
+                                  {exercise.target} {formatTargetUnit(exercise.countUnit)}
+                                </strong>
+
+                                {exercise.equipment === "optional-dumbbells" && (
+                                  <small>
+                                    <Dumbbell size={12} />
+                                    opcional
+                                  </small>
+                                )}
+
+                                <button
+                                  aria-expanded={isReplacing}
+                                  className="training-exercise-change-button"
+                                  onClick={() =>
+                                    setReplacementTarget(
+                                      isReplacing
+                                        ? null
+                                        : {
+                                            blockId: block.id,
+                                            exerciseId: exercise.id,
+                                          },
+                                    )
+                                  }
+                                  type="button"
+                                >
+                                  <RefreshCw size={14} />
+                                  Cambiar
+                                </button>
+                              </div>
+
+                              {isReplacing && (
+                                <div className="training-replacement-panel">
+                                  <div className="training-replacement-panel__heading">
+                                    <div>
+                                      <span>REEMPLAZAR EJERCICIO</span>
+                                      <strong>Elige otro movimiento</strong>
+                                    </div>
+                                    <button
+                                      onClick={() => setReplacementTarget(null)}
+                                      type="button"
+                                    >
+                                      Cancelar
+                                    </button>
+                                  </div>
+
+                                  <p>
+                                    Solo cambia este ejercicio. La Forja ajusta sus
+                                    repeticiones para conservar aproximadamente la misma
+                                    duración del entrenamiento.
+                                  </p>
+
+                                  <div className="training-replacement-options">
+                                    {replacementOptions.map((option) => (
+                                      <button
+                                        className="training-replacement-option"
+                                        key={option.key}
+                                        onClick={() => {
+                                          replaceExercise(
+                                            block.id,
+                                            exercise.id,
+                                            option.key,
+                                          );
+                                          setReplacementTarget(null);
+                                        }}
+                                        type="button"
+                                      >
+                                        <div>
+                                          <strong>{option.name}</strong>
+                                          <small>{option.instructions}</small>
+                                        </div>
+
+                                        <span>
+                                          {option.target} {formatTargetUnit(option.countUnit)}
+                                        </span>
+
+                                        {option.equipment === "optional-dumbbells" && (
+                                          <em>
+                                            <Dumbbell size={12} />
+                                            Mancuernas opcionales
+                                          </em>
+                                        )}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </article>
                   ))}
@@ -423,8 +551,8 @@ function TrainingPage() {
 
                 <p className="training-preview-note">
                   <Shield size={16} />
-                  La rutina queda cerrada al comenzar. Las calorías son informativas y
-                  no generan ejercicios extra.
+                  Puedes cambiar ejercicios individualmente antes de comenzar. Al iniciar,
+                  la rutina queda cerrada. Las calorías son solo informativas.
                 </p>
               </section>
             ) : (

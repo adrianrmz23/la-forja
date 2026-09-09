@@ -6,32 +6,32 @@ import {
   Check,
   Clock3,
   Dumbbell,
-  Eye,
   Flame,
   Footprints,
   Gauge,
   HeartPulse,
   History,
+  Eye,
   RefreshCw,
   Shield,
   Sparkles,
   Swords,
   TimerReset,
   Zap,
+  X,
 } from "lucide-react";
 import { Link } from "react-router";
 import "./TrainingPage.css";
-import { MovementDemoDialog } from "../components/MovementDemo.tsx";
 import { useProfileStore } from "../stores/profileStore.ts";
 import { useFreeWorkoutStore } from "../stores/freeWorkoutStore.ts";
 import { getFreeWorkoutReplacementOptions } from "../generators/freeWorkoutGenerator.ts";
 import { generateWorkoutWithAI } from "../services/aiWorkoutService.ts";
+import type { RoutineExercise } from "../types/routine.ts";
 import {
   FREE_WORKOUT_LEVEL_ID,
   type FreeWorkoutFocus,
   type FreeWorkoutIntensity,
 } from "../types/freeWorkout.ts";
-import type { RoutineExercise } from "../types/routine.ts";
 
 const TIME_PRESETS = [15, 20, 30, 45, 60] as const;
 
@@ -105,6 +105,39 @@ function formatTargetUnit(countUnit: string): string {
   }
 }
 
+const MOVEMENT_PHASE_LABELS: Record<string, string> = {
+  standing: "Posición de pie",
+  squat_down: "Baja en sentadilla cómoda",
+  lunge_down: "Baja en desplante moderado",
+  knee_lift: "Eleva una rodilla",
+  step_wide: "Da un paso lateral amplio",
+  elbows_flexed: "Flexiona los codos",
+  arms_overhead: "Lleva los brazos sobre hombros",
+  arms_lateral: "Eleva los brazos lateralmente",
+  arms_down: "Regresa los brazos abajo",
+};
+
+const DETECTOR_GUIDANCE: Partial<Record<RoutineExercise["detector"], string>> = {
+  march: "Alterna las piernas con pasos claros y mantén el torso estable.",
+  squat: "Flexiona las piernas, baja de forma cómoda y vuelve completamente de pie.",
+  lunge: "Da un paso y baja de forma moderada; vuelve a una posición estable antes de repetir.",
+  "high-knees": "Alterna elevaciones de rodilla de forma visible, sin necesidad de llegar al pecho.",
+  "jumping-jack": "Separa piernas y eleva brazos; vuelve al centro antes de la siguiente repetición.",
+  "step-jack": "Haz el jack con pasos laterales; no es necesario saltar.",
+  "calf-raise": "Eleva los talones y vuelve a apoyar claramente antes de repetir.",
+  "knee-to-elbow": "Acerca rodilla y codo de forma clara y regresa al centro.",
+  "squat-to-press": "Haz una sentadilla cómoda y al subir lleva los brazos sobre los hombros.",
+  "march-press": "Eleva una rodilla mientras realizas un press cómodo y vuelve al centro.",
+  "step-jack-press": "Da el paso lateral y acompáñalo con un press; vuelve al centro antes de repetir.",
+  "squat-knee-drive": "Haz una sentadilla cómoda y al subir eleva una rodilla de forma visible.",
+  "lateral-step-squat": "Da un paso lateral, flexiona las piernas y vuelve al centro.",
+  "biceps-curl": "Flexiona los codos y baja por completo antes de iniciar otra repetición.",
+  "shoulder-press": "Empuja los brazos hacia arriba y vuelve a la altura de hombros.",
+  "lateral-raise": "Eleva los brazos lateralmente hasta una altura cómoda y vuelve abajo.",
+  "front-raise": "Eleva los brazos al frente de forma visible y vuelve abajo.",
+  "movement-recipe": "Completa cada fase en orden y vuelve a una postura estable para cerrar la repetición.",
+};
+
 function TrainingPage() {
   const profile = useProfileStore((state) => state.profile);
   const activeWorkout = useFreeWorkoutStore((state) => state.activeWorkout);
@@ -129,11 +162,15 @@ function TrainingPage() {
   const [generationMode, setGenerationMode] = useState<"local" | "ai">("ai");
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
-  const [demoExercise, setDemoExercise] = useState<RoutineExercise | null>(null);
 
   const [replacementTarget, setReplacementTarget] = useState<{
     blockId: string;
     exerciseId: string;
+  } | null>(null);
+
+  const [exercisePreview, setExercisePreview] = useState<{
+    blockName: string;
+    exercise: RoutineExercise;
   } | null>(null);
 
   const selectedPreset = TIME_PRESETS.includes(
@@ -500,29 +537,41 @@ function TrainingPage() {
                               key={exercise.id}
                             >
                               <div className="training-routine-exercise__main">
-                                <span className="training-routine-exercise__name">
-                                  {exercise.name}
-                                </span>
+                                <div className="training-routine-exercise__content">
+                                  <div className="training-routine-exercise__title-row">
+                                    <span className="training-routine-exercise__name">
+                                      {exercise.name}
+                                    </span>
 
-                                <strong>
-                                  {exercise.target} {formatTargetUnit(exercise.countUnit)}
-                                </strong>
+                                    <strong className="training-routine-exercise__target">
+                                      {exercise.target} {formatTargetUnit(exercise.countUnit)}
+                                    </strong>
+                                  </div>
 
-                                {exercise.equipment === "optional-dumbbells" && (
-                                  <small>
-                                    <Dumbbell size={12} />
-                                    opcional
-                                  </small>
-                                )}
+                                  <div className="training-routine-exercise__meta">
+                                    {exercise.equipment === "optional-dumbbells" && (
+                                      <small>
+                                        <Dumbbell size={12} />
+                                        Mancuernas opcionales
+                                      </small>
+                                    )}
+                                    <span>{exercise.met.toFixed(1)} MET</span>
+                                  </div>
+                                </div>
 
-                                <div className="training-exercise-actions">
+                                <div className="training-routine-exercise__actions">
                                   <button
-                                    className="training-exercise-demo-button"
-                                    onClick={() => setDemoExercise(exercise)}
+                                    className="training-exercise-view-button"
+                                    onClick={() =>
+                                      setExercisePreview({
+                                        blockName: block.name,
+                                        exercise,
+                                      })
+                                    }
                                     type="button"
                                   >
-                                    <Eye size={14} />
-                                    Ver movimiento
+                                    <Eye size={15} />
+                                    <span>Ver</span>
                                   </button>
 
                                   <button
@@ -541,7 +590,7 @@ function TrainingPage() {
                                     type="button"
                                   >
                                     <RefreshCw size={14} />
-                                    Cambiar
+                                    <span>{isReplacing ? "Cerrar" : "Cambiar"}</span>
                                   </button>
                                 </div>
                               </div>
@@ -691,10 +740,99 @@ function TrainingPage() {
         <footer className="training-data-credit">Exercise data by RepDB (repdb.co) · La IA solo recibe metadatos permitidos, nunca imágenes de RepDB.</footer>
       </div>
 
-      <MovementDemoDialog
-        exercise={demoExercise}
-        onClose={() => setDemoExercise(null)}
-      />
+      {exercisePreview && (
+        <div
+          className="training-movement-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="training-movement-modal-title"
+          onClick={(event) => {
+            if (event.currentTarget === event.target) {
+              setExercisePreview(null);
+            }
+          }}
+        >
+          <div className="training-movement-sheet">
+            <div className="training-movement-sheet__grabber" />
+
+            <div className="training-movement-sheet__header">
+              <div>
+                <span>{exercisePreview.blockName}</span>
+                <h2 id="training-movement-modal-title">
+                  {exercisePreview.exercise.name}
+                </h2>
+              </div>
+
+              <button
+                aria-label="Cerrar detalle del ejercicio"
+                onClick={() => setExercisePreview(null)}
+                type="button"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="training-movement-sheet__chips">
+              <span>
+                {exercisePreview.exercise.target}{" "}
+                {formatTargetUnit(exercisePreview.exercise.countUnit)}
+              </span>
+              <span>{exercisePreview.exercise.met.toFixed(1)} MET</span>
+              {exercisePreview.exercise.equipment === "optional-dumbbells" && (
+                <span>
+                  <Dumbbell size={13} />
+                  Mancuernas opcionales
+                </span>
+              )}
+            </div>
+
+            <section className="training-movement-sheet__section">
+              <span className="training-movement-sheet__eyebrow">CÓMO HACERLO</span>
+              <p>{exercisePreview.exercise.instructions}</p>
+            </section>
+
+            {exercisePreview.exercise.movementRecipe?.sequence?.length ? (
+              <section className="training-movement-sheet__section">
+                <span className="training-movement-sheet__eyebrow">SECUENCIA DETECTADA</span>
+                <ol className="training-movement-sequence">
+                  {exercisePreview.exercise.movementRecipe.sequence.map((phase, index) => (
+                    <li key={`${phase}-${index}`}>
+                      <span>{index + 1}</span>
+                      <strong>{MOVEMENT_PHASE_LABELS[phase] ?? phase.replaceAll("_", " ")}</strong>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            ) : (
+              <section className="training-movement-sheet__section training-movement-sheet__section--hint">
+                <span className="training-movement-sheet__eyebrow">QUÉ BUSCA LA CÁMARA</span>
+                <p>
+                  {DETECTOR_GUIDANCE[exercisePreview.exercise.detector] ??
+                    "Haz un recorrido claro, controlado y vuelve a la posición inicial antes de repetir."}
+                </p>
+              </section>
+            )}
+
+            <div className="training-movement-sheet__tolerance">
+              <Shield size={18} />
+              <div>
+                <strong>Detección permisiva</strong>
+                <span>
+                  No necesitas una ejecución perfecta. La Forja busca un movimiento claro y un regreso estable para evitar dobles conteos.
+                </span>
+              </div>
+            </div>
+
+            <button
+              className="training-movement-sheet__close"
+              onClick={() => setExercisePreview(null)}
+              type="button"
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

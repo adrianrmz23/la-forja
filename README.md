@@ -1,75 +1,39 @@
-# React + TypeScript + Vite
+# La Forja · Rutina interactiva v3
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Esta corrección rediseña la lista de ejercicios generados en `/training`, especialmente para móvil.
 
-Currently, two official plugins are available:
+## Reemplazar
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- `src/pages/TrainingPage.tsx`
+- `src/pages/TrainingPage.css`
 
-## React Compiler
+## Cambios
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Cada ejercicio ahora se presenta como una tarjeta clara.
+- Nombre y repeticiones ya no compiten por el mismo espacio.
+- Acciones `Ver` y `Cambiar` se muestran en una fila independiente en móvil.
+- `Ver` abre una ficha interactiva tipo bottom-sheet con:
+  - instrucciones;
+  - objetivo/repeticiones;
+  - MET;
+  - mancuernas opcionales;
+  - qué está buscando la cámara;
+  - secuencia por fases para ejercicios del Movement Engine;
+  - recordatorio de detección permisiva.
+- El panel de reemplazo individual se conserva.
+- No modifica generación local, AI Coach, RepDB, BattlePage ni detectores.
 
-## Expanding the ESLint configuration
+## Verificación
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+npm run lint
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Luego:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+git add .
+git commit -m "Mejorar lista interactiva de ejercicios"
+git push origin main
 ```

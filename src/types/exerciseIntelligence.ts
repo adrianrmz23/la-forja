@@ -20,6 +20,7 @@ export interface RepDbExerciseRecord {
   is_unilateral: boolean;
   is_bodyweight: boolean;
   instructions_en: string;
+  instructions_es?: string;
 }
 
 export interface ExerciseCompatibility {

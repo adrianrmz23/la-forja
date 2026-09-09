@@ -6,6 +6,7 @@ import {
   Check,
   Clock3,
   Dumbbell,
+  Eye,
   Flame,
   Footprints,
   Gauge,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router";
 import "./TrainingPage.css";
+import { MovementDemoDialog } from "../components/MovementDemo.tsx";
 import { useProfileStore } from "../stores/profileStore.ts";
 import { useFreeWorkoutStore } from "../stores/freeWorkoutStore.ts";
 import { getFreeWorkoutReplacementOptions } from "../generators/freeWorkoutGenerator.ts";
@@ -29,6 +31,7 @@ import {
   type FreeWorkoutFocus,
   type FreeWorkoutIntensity,
 } from "../types/freeWorkout.ts";
+import type { RoutineExercise } from "../types/routine.ts";
 
 const TIME_PRESETS = [15, 20, 30, 45, 60] as const;
 
@@ -126,6 +129,7 @@ function TrainingPage() {
   const [generationMode, setGenerationMode] = useState<"local" | "ai">("ai");
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
+  const [demoExercise, setDemoExercise] = useState<RoutineExercise | null>(null);
 
   const [replacementTarget, setReplacementTarget] = useState<{
     blockId: string;
@@ -511,24 +515,35 @@ function TrainingPage() {
                                   </small>
                                 )}
 
-                                <button
-                                  aria-expanded={isReplacing}
-                                  className="training-exercise-change-button"
-                                  onClick={() =>
-                                    setReplacementTarget(
-                                      isReplacing
-                                        ? null
-                                        : {
-                                            blockId: block.id,
-                                            exerciseId: exercise.id,
-                                          },
-                                    )
-                                  }
-                                  type="button"
-                                >
-                                  <RefreshCw size={14} />
-                                  Cambiar
-                                </button>
+                                <div className="training-exercise-actions">
+                                  <button
+                                    className="training-exercise-demo-button"
+                                    onClick={() => setDemoExercise(exercise)}
+                                    type="button"
+                                  >
+                                    <Eye size={14} />
+                                    Ver movimiento
+                                  </button>
+
+                                  <button
+                                    aria-expanded={isReplacing}
+                                    className="training-exercise-change-button"
+                                    onClick={() =>
+                                      setReplacementTarget(
+                                        isReplacing
+                                          ? null
+                                          : {
+                                              blockId: block.id,
+                                              exerciseId: exercise.id,
+                                            },
+                                      )
+                                    }
+                                    type="button"
+                                  >
+                                    <RefreshCw size={14} />
+                                    Cambiar
+                                  </button>
+                                </div>
                               </div>
 
                               {isReplacing && (
@@ -675,6 +690,11 @@ function TrainingPage() {
 
         <footer className="training-data-credit">Exercise data by RepDB (repdb.co) · La IA solo recibe metadatos permitidos, nunca imágenes de RepDB.</footer>
       </div>
+
+      <MovementDemoDialog
+        exercise={demoExercise}
+        onClose={() => setDemoExercise(null)}
+      />
     </main>
   );
 }

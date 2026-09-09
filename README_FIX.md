@@ -1,17 +1,17 @@
-# Fix build TS2554
+# La Forja · Fix lint RepDB
 
-Reemplaza:
-- `src/pages/BattlePage.tsx`
+Reemplaza solamente:
 
-Motivo:
-`resolveCalorieGoal` ya no recibe argumentos desde que se eliminó la sobrecarga automática por calorías, pero `BattlePage.tsx` todavía enviaba `estimatedCalories >= calorieGoal`.
+- `src/pages/MovementLabPage.tsx`
+- `src/services/aiWorkoutService.ts`
 
-Cambio aplicado:
-```ts
-resolveCalorieGoal();
-```
+Cambios:
 
-Prueba después:
+1. Se elimina el `setState` síncrono dentro de un `useEffect`. El límite visible de RepDB ahora se reinicia directamente al cambiar búsqueda o filtro.
+2. Se elimina la asignación inicial inútil de `repDbEntries`; ahora la carga usa una expresión asíncrona que devuelve el arreglo final.
+
+Prueba:
+
 ```bash
 npm run lint
 npm run build

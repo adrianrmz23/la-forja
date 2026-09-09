@@ -31,6 +31,7 @@ import { Link, useParams } from "react-router";
 import { usePlayerStore } from "../stores/playerStore.ts";
 import { useProfileStore } from "../stores/profileStore.ts";
 import { useGeneratedLevelStore } from "../stores/generatedLevelStore.ts";
+import { MovementDemo } from "../components/MovementDemo.tsx";
 import { useFreeWorkoutStore } from "../stores/freeWorkoutStore.ts";
 import { useExerciseIntelligenceStore } from "../stores/exerciseIntelligenceStore.ts";
 import { FREE_WORKOUT_LEVEL_ID } from "../types/freeWorkout.ts";
@@ -2103,6 +2104,13 @@ function BattlePage() {
                           {nextExercise.equipment === "optional-dumbbells" && (
                             <small>Mancuernas opcionales</small>
                           )}
+                          <div className="battle-next-movement-demo">
+                            <MovementDemo
+                              exercise={nextExercise}
+                              compact
+                              showControls={false}
+                            />
+                          </div>
                         </div>
                       )}
 
@@ -2410,6 +2418,17 @@ function BattlePage() {
                           ? `Vuelve a tu posición. Siguiente: ${nextExercise?.name ?? "continúa"}.`
                           : "Puedes relajarte, respirar y tomar agua."}
                     </p>
+
+                    {nextExercise && (
+                      <div className="battle-rest-demo">
+                        <span>ASÍ SE HACE EL SIGUIENTE</span>
+                        <MovementDemo
+                          exercise={nextExercise}
+                          compact
+                          showControls={false}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
 

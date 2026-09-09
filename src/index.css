@@ -5304,3 +5304,48 @@ button {
     font-size: 1.15rem;
   }
 }
+/* Movement Demo Engine · battle */
+.battle-next-movement-demo {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.mobile-training-next-exercise .battle-next-movement-demo .movement-demo-stage {
+  min-height: 116px;
+  background: rgba(8, 9, 12, .72);
+}
+
+.mobile-training-next-exercise .battle-next-movement-demo .movement-demo-stage svg {
+  width: 112px;
+  height: 124px;
+}
+
+.battle-rest-demo {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,.07);
+}
+
+.battle-rest-demo > span {
+  color: #ff8b3d;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+
+.battle-rest-demo .movement-demo-stage {
+  min-height: 130px;
+  background: rgba(6, 7, 10, .6);
+}
+
+.battle-rest-demo .movement-demo-stage svg {
+  width: 122px;
+  height: 138px;
+}
+
+@media (max-width: 720px) {
+  .battle-rest-demo { display: none; }
+}

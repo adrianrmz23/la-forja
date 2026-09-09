@@ -1,39 +1,23 @@
-# La Forja · Rutina interactiva v3
+# La Forja · Popup animado v4
 
-Esta corrección rediseña la lista de ejercicios generados en `/training`, especialmente para móvil.
-
-## Reemplazar
+Reemplaza únicamente:
 
 - `src/pages/TrainingPage.tsx`
 - `src/pages/TrainingPage.css`
 
-## Cambios
+## Qué cambia
 
-- Cada ejercicio ahora se presenta como una tarjeta clara.
-- Nombre y repeticiones ya no compiten por el mismo espacio.
-- Acciones `Ver` y `Cambiar` se muestran en una fila independiente en móvil.
-- `Ver` abre una ficha interactiva tipo bottom-sheet con:
-  - instrucciones;
-  - objetivo/repeticiones;
-  - MET;
-  - mancuernas opcionales;
-  - qué está buscando la cámara;
-  - secuencia por fases para ejercicios del Movement Engine;
-  - recordatorio de detección permisiva.
-- El panel de reemplazo individual se conserva.
-- No modifica generación local, AI Coach, RepDB, BattlePage ni detectores.
+- El popup **Ver** ahora incluye una animación orientativa del ejercicio.
+- Las animaciones se adaptan al detector: marcha, sentadilla, desplante, jacks, curl, press, elevaciones y compuestos.
+- Las recetas del Movement Engine intentan combinar sus primitivas para mostrar el movimiento compuesto correspondiente.
+- Botón reproducir/pausar.
+- Selector velocidad normal/lenta.
+- Etiqueta del origen técnico del ejercicio: detector nativo, Movement Engine, RepDB o movimiento creado por IA.
+- La animación es visual/orientativa y no modifica los umbrales de MediaPipe.
 
 ## Verificación
 
 ```bash
 npm run lint
 npm run build
-```
-
-Luego:
-
-```bash
-git add .
-git commit -m "Mejorar lista interactiva de ejercicios"
-git push origin main
 ```

@@ -12,6 +12,8 @@ import {
   HeartPulse,
   History,
   Eye,
+  Pause,
+  Play,
   RefreshCw,
   Shield,
   Sparkles,
@@ -137,6 +139,181 @@ const DETECTOR_GUIDANCE: Partial<Record<RoutineExercise["detector"], string>> = 
   "front-raise": "Eleva los brazos al frente de forma visible y vuelve abajo.",
   "movement-recipe": "Completa cada fase en orden y vuelve a una postura estable para cerrar la repetición.",
 };
+
+
+function getExerciseSourceLabel(exercise: RoutineExercise): string {
+  if (String(exercise.exerciseId).startsWith("ai:")) {
+    return "Movimiento creado por IA";
+  }
+
+  if (exercise.source === "repdb") {
+    return "Referencia RepDB";
+  }
+
+  if (exercise.source === "recipe" || exercise.detector === "movement-recipe") {
+    return "Movement Engine";
+  }
+
+  return "Detector nativo";
+}
+
+function getMotionVariant(exercise: RoutineExercise): string {
+  const sequence = exercise.movementRecipe?.sequence ?? [];
+  const has = (phase: string) => sequence.includes(phase as never);
+
+  if (exercise.detector === "movement-recipe") {
+    if (has("lunge_down") && has("elbows_flexed")) return "lunge-curl";
+    if (has("squat_down") && has("arms_overhead")) return "squat-press";
+    if (has("squat_down") && has("elbows_flexed")) return "squat-curl";
+    if (has("knee_lift") && has("arms_overhead")) return "knee-press";
+    if (has("knee_lift") && has("arms_lateral")) return "knee-lateral";
+    if (has("step_wide") && has("arms_overhead")) return "step-press";
+    if (has("step_wide") && has("elbows_flexed")) return "step-curl";
+    if (has("squat_down")) return "squat";
+    if (has("lunge_down")) return "lunge";
+    if (has("knee_lift")) return "knee-lift";
+    if (has("step_wide")) return "step-jack";
+    if (has("elbows_flexed")) return "curl";
+    if (has("arms_overhead")) return "press";
+    if (has("arms_lateral")) return "lateral-raise";
+  }
+
+  switch (exercise.detector) {
+    case "march":
+      return "march";
+    case "high-knees":
+      return "knee-lift";
+    case "squat":
+      return "squat";
+    case "lunge":
+      return "lunge";
+    case "jumping-jack":
+      return "jack";
+    case "step-jack":
+      return "step-jack";
+    case "calf-raise":
+      return "calf-raise";
+    case "knee-to-elbow":
+      return "knee-elbow";
+    case "squat-to-press":
+      return "squat-press";
+    case "march-press":
+      return "knee-press";
+    case "step-jack-press":
+      return "step-press";
+    case "squat-knee-drive":
+      return "squat-knee";
+    case "lateral-step-squat":
+      return "side-squat";
+    case "biceps-curl":
+      return "curl";
+    case "shoulder-press":
+      return "press";
+    case "lateral-raise":
+      return "lateral-raise";
+    case "front-raise":
+      return "front-raise";
+    default:
+      return "neutral";
+  }
+}
+
+function ExerciseMotionDemo({ exercise }: { exercise: RoutineExercise }) {
+  const [paused, setPaused] = useState(false);
+  const [slow, setSlow] = useState(false);
+  const motionVariant = getMotionVariant(exercise);
+
+  return (
+    <section className="training-motion-demo" aria-label="Demostración animada del ejercicio">
+      <div className="training-motion-demo__topline">
+        <span>
+          <Sparkles size={13} />
+          ANIMACIÓN ORIENTATIVA
+        </span>
+        <small>{getExerciseSourceLabel(exercise)}</small>
+      </div>
+
+      <div
+        className={`training-motion-stage training-motion-stage--${motionVariant} ${
+          paused ? "training-motion-stage--paused" : ""
+        } ${slow ? "training-motion-stage--slow" : ""}`}
+      >
+        <svg
+          aria-label={`Demostración de ${exercise.name}`}
+          className="training-motion-figure"
+          role="img"
+          viewBox="0 0 220 220"
+        >
+          <ellipse className="training-motion-shadow" cx="110" cy="205" rx="55" ry="7" />
+
+          <g className="training-motion-person">
+            <circle className="training-motion-head" cx="110" cy="42" r="16" />
+            <line className="training-motion-bone training-motion-torso" x1="110" y1="60" x2="110" y2="118" />
+            <line className="training-motion-shoulders" x1="87" y1="76" x2="133" y2="76" />
+
+            <g className="training-motion-arm training-motion-arm--left">
+              <line className="training-motion-bone" x1="110" y1="76" x2="84" y2="101" />
+              <g className="training-motion-forearm training-motion-forearm--left">
+                <line className="training-motion-bone" x1="84" y1="101" x2="70" y2="136" />
+                <circle className="training-motion-joint" cx="70" cy="136" r="4" />
+              </g>
+              <circle className="training-motion-joint" cx="84" cy="101" r="4" />
+            </g>
+
+            <g className="training-motion-arm training-motion-arm--right">
+              <line className="training-motion-bone" x1="110" y1="76" x2="136" y2="101" />
+              <g className="training-motion-forearm training-motion-forearm--right">
+                <line className="training-motion-bone" x1="136" y1="101" x2="150" y2="136" />
+                <circle className="training-motion-joint" cx="150" cy="136" r="4" />
+              </g>
+              <circle className="training-motion-joint" cx="136" cy="101" r="4" />
+            </g>
+
+            <g className="training-motion-leg training-motion-leg--left">
+              <line className="training-motion-bone" x1="110" y1="118" x2="88" y2="158" />
+              <line className="training-motion-bone" x1="88" y1="158" x2="78" y2="198" />
+              <circle className="training-motion-joint" cx="88" cy="158" r="4" />
+            </g>
+
+            <g className="training-motion-leg training-motion-leg--right">
+              <line className="training-motion-bone" x1="110" y1="118" x2="132" y2="158" />
+              <line className="training-motion-bone" x1="132" y1="158" x2="142" y2="198" />
+              <circle className="training-motion-joint" cx="132" cy="158" r="4" />
+            </g>
+
+            <circle className="training-motion-joint" cx="110" cy="76" r="4" />
+            <circle className="training-motion-joint" cx="110" cy="118" r="5" />
+          </g>
+        </svg>
+
+        <div className="training-motion-stage__pulse" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+
+      <div className="training-motion-demo__controls">
+        <button onClick={() => setPaused((current) => !current)} type="button">
+          {paused ? <Play size={15} fill="currentColor" /> : <Pause size={15} />}
+          {paused ? "Reproducir" : "Pausar"}
+        </button>
+
+        <button
+          className={slow ? "training-motion-control--active" : ""}
+          onClick={() => setSlow((current) => !current)}
+          type="button"
+        >
+          {slow ? "Velocidad lenta" : "Velocidad normal"}
+        </button>
+      </div>
+
+      <p className="training-motion-demo__note">
+        La animación sirve para entender el recorrido general. La cámara sigue usando una detección permisiva, no exige copiar el dibujo con precisión.
+      </p>
+    </section>
+  );
+}
 
 function TrainingPage() {
   const profile = useProfileStore((state) => state.profile);
@@ -785,6 +962,8 @@ function TrainingPage() {
                 </span>
               )}
             </div>
+
+            <ExerciseMotionDemo exercise={exercisePreview.exercise} />
 
             <section className="training-movement-sheet__section">
               <span className="training-movement-sheet__eyebrow">CÓMO HACERLO</span>

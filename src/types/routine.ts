@@ -1,3 +1,5 @@
+import type { MovementRecipe } from "./movementEngine.ts";
+
 export type ExerciseMode =
   | "repetitions"
   | "combinations"
@@ -27,9 +29,11 @@ export type ExerciseDetector =
   | "biceps-curl"
   | "shoulder-press"
   | "lateral-raise"
-  | "front-raise";
+  | "front-raise"
+  | "movement-recipe"
+  | "unavailable";
 
-export type ExerciseId =
+export type BuiltInExerciseId =
   | "active-march"
   | "arm-circles"
   | "torso-rotation"
@@ -56,6 +60,12 @@ export type ExerciseId =
   | "lateral-raise"
   | "front-raise";
 
+export type ExerciseId =
+  | BuiltInExerciseId
+  | `repdb:${string}`
+  | `ai:${string}`
+  | `recipe:${string}`;
+
 export type ExerciseCountUnit =
   | "repetition"
   | "step"
@@ -78,6 +88,10 @@ export interface RoutineExercise {
   met: number;
   detector: ExerciseDetector;
   estimatedSecondsPerRep?: number;
+  sourceKey?: string;
+  source?: "builtin" | "repdb" | "ai" | "recipe";
+  recipeId?: string;
+  movementRecipe?: MovementRecipe;
 
   /**
    * La cámara valida el movimiento corporal, no la presencia del equipo.

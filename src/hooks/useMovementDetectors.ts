@@ -25,6 +25,7 @@ import { useMarchPressDetector } from "./useMarchPressDetector.ts";
 import { useStepJackPressDetector } from "./useStepJackPressDetector.ts";
 import { useSquatKneeDriveDetector } from "./useSquatKneeDriveDetector.ts";
 import { useLateralStepSquatDetector } from "./useLateralStepSquatDetector.ts";
+import { useMovementRecipeDetector } from "./useMovementRecipeDetector.ts";
 
 export type DetectedMovementKind = "repetition" | "combination";
 
@@ -351,6 +352,16 @@ export function useMovementDetectors({
     [emitMovement],
   );
 
+  const handleMovementRecipeValid = useCallback(() => {
+    emitMovement({
+      kind: "repetition",
+      detector: "movement-recipe",
+      label: "Movimiento compuesto válido",
+      message: `${currentExercise?.name ?? "Movimiento"} registrado por el motor de primitivas.`,
+      damage: 3,
+    });
+  }, [currentExercise?.name, emitMovement]);
+
   const {
     processLandmarks: processSquatLandmarks,
     reset: resetSquatDetector,
@@ -481,6 +492,13 @@ export function useMovementDetectors({
     onValidRepetition: handleLateralStepSquatValid,
   });
 
+  const movementRecipe = useMovementRecipeDetector({
+    enabled: enabled && detector === "movement-recipe",
+    recipeId: currentExercise?.recipeId,
+    recipeOverride: currentExercise?.movementRecipe,
+    onValidRepetition: handleMovementRecipeValid,
+  });
+
   const processLandmarks = useCallback(
     (landmarks: NormalizedLandmark[] | null) => {
       if (!landmarks) {
@@ -508,6 +526,7 @@ export function useMovementDetectors({
       stepJackPress.processLandmarks(landmarks);
       squatKneeDrive.processLandmarks(landmarks);
       lateralStepSquat.processLandmarks(landmarks);
+      movementRecipe.processLandmarks(landmarks);
     },
     [
       bicepsCurl,
@@ -524,6 +543,7 @@ export function useMovementDetectors({
       lateralStepSquat,
       lunge,
       march,
+      movementRecipe,
       marchPress,
       processSquatLandmarks,
       shoulderPress,
@@ -556,6 +576,7 @@ export function useMovementDetectors({
     stepJackPress.reset();
     squatKneeDrive.reset();
     lateralStepSquat.reset();
+    movementRecipe.reset();
   }, [
     bicepsCurl,
     combination,
@@ -566,6 +587,7 @@ export function useMovementDetectors({
     lateralRaise,
     lunge,
     march,
+    movementRecipe,
     resetSquatDetector,
     shoulderPress,
     calfRaise,
@@ -630,6 +652,8 @@ export function useMovementDetectors({
         return squatKneeDrive.isMovementActive;
       case "lateral-step-squat":
         return lateralStepSquat.isMovementActive;
+      case "movement-recipe":
+        return movementRecipe.isMovementActive;
       default:
         return false;
     }
@@ -891,6 +915,18 @@ export function useMovementDetectors({
       };
     }
 
+    if (detector === "movement-recipe") {
+      return {
+        phase: movementRecipe.phase,
+        phaseLabel: movementRecipe.phaseLabel,
+        instruction: movementRecipe.instruction,
+        primaryLabel: movementRecipe.primaryLabel,
+        primaryValue: movementRecipe.primaryValue,
+        secondaryLabel: movementRecipe.secondaryLabel,
+        secondaryValue: movementRecipe.secondaryValue,
+      };
+    }
+
     return {
       phase: "waiting",
       phaseLabel: "Esperando ejercicio",
@@ -953,6 +989,13 @@ export function useMovementDetectors({
     march.phase,
     march.phaseLabel,
     march.rightHipAngle,
+    movementRecipe.instruction,
+    movementRecipe.phase,
+    movementRecipe.phaseLabel,
+    movementRecipe.primaryLabel,
+    movementRecipe.primaryValue,
+    movementRecipe.secondaryLabel,
+    movementRecipe.secondaryValue,
     shoulderPress.instruction,
     shoulderPress.leftElbowAngle,
     shoulderPress.phase,

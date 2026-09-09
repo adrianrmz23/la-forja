@@ -32,6 +32,7 @@ import { usePlayerStore } from "../stores/playerStore.ts";
 import { useProfileStore } from "../stores/profileStore.ts";
 import { useGeneratedLevelStore } from "../stores/generatedLevelStore.ts";
 import { useFreeWorkoutStore } from "../stores/freeWorkoutStore.ts";
+import { useExerciseIntelligenceStore } from "../stores/exerciseIntelligenceStore.ts";
 import { FREE_WORKOUT_LEVEL_ID } from "../types/freeWorkout.ts";
 
 import { useCamera } from "../hooks/useCamera.ts";
@@ -991,9 +992,7 @@ function BattlePage() {
     }
 
     const timeoutId = window.setTimeout(() => {
-      resolveCalorieGoal(
-        estimatedCalories >= calorieGoal,
-      );
+      resolveCalorieGoal();
     }, 800);
 
     return () => {
@@ -1722,6 +1721,10 @@ function BattlePage() {
       return;
     }
 
+    useExerciseIntelligenceStore
+      .getState()
+      .recordDetected(currentExercise.sourceKey ?? String(currentExercise.exerciseId));
+
     validRepetitionsRef.current += 1;
     setRepetitions(validRepetitionsRef.current);
 
@@ -1768,6 +1771,12 @@ function BattlePage() {
       currentExercise?.detector !== "squat"
     ) {
       return;
+    }
+
+    if (currentExercise) {
+      useExerciseIntelligenceStore
+        .getState()
+        .recordInvalid(currentExercise.sourceKey ?? String(currentExercise.exerciseId));
     }
 
     const messages: Record<SquatInvalidReason, string> = {

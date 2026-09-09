@@ -8,6 +8,7 @@ import type {
   WorkoutRoutine,
 } from "../types/routine.ts";
 import type {
+  AIWorkoutBlueprint,
   FreeWorkoutFocus,
   FreeWorkoutIntensity,
   FreeWorkoutPlan,
@@ -252,6 +253,10 @@ function createRoutineExercise(
     detector: entry.detector,
     estimatedSecondsPerRep: entry.estimatedSecondsPerRep,
     equipment: entry.equipment,
+    recipeId: entry.recipeId,
+    movementRecipe: entry.movementRecipe,
+    sourceKey: entry.sourceKey ?? entry.key,
+    source: entry.recipeId ? "recipe" : "builtin",
   };
 }
 
@@ -585,6 +590,7 @@ export function getFreeWorkoutReplacementOptions(
   );
 
   return getEligibleCatalog(workout.preferences)
+    .filter((entry) => !entry.recipeId)
     .filter((entry) => entry.key !== currentEntry?.key)
     .map((entry) => ({
       entry,
@@ -770,5 +776,75 @@ export function generateFreeWorkout(
     estimatedCalories,
     preferences,
     routine,
+  };
+}
+
+
+export function generateFreeWorkoutFromBlueprint(
+  options: GenerateFreeWorkoutOptions,
+  blueprint: AIWorkoutBlueprint,
+  additionalEntries: ExerciseCatalogEntry[] = [],
+): FreeWorkoutPlan {
+  const targetMinutes = clamp(Math.round(options.targetMinutes), 10, 90);
+  const preferences: FreeWorkoutPreferences = { ...options, targetMinutes };
+  const eligible = [...getEligibleCatalog(preferences), ...additionalEntries];
+  const eligibleByKey = new Map(eligible.map((entry) => [entry.key, entry]));
+
+  const initialBlocks = blueprint.blocks
+    .slice(0, 6)
+    .map((block, blockIndex) => {
+      const entries = block.exerciseKeys
+        .map((key) => eligibleByKey.get(key))
+        .filter((entry): entry is ExerciseCatalogEntry => Boolean(entry))
+        .slice(0, 6);
+
+      return {
+        id: block.id || `ai-block-${blockIndex + 1}`,
+        name: block.name || `Bloque ${blockIndex + 1}`,
+        rounds: clamp(Math.round(block.rounds || 1), 1, 4),
+        exercises: entries.map((entry, exerciseIndex) =>
+          createRoutineExercise(
+            entry,
+            block.id || `ai-block-${blockIndex + 1}`,
+            exerciseIndex,
+            preferences,
+          ),
+        ),
+      } satisfies RoutineBlock;
+    })
+    .filter((block) => block.exercises.length > 0);
+
+  if (initialBlocks.length < 3) {
+    return generateFreeWorkout(options);
+  }
+
+  const blocks = fitRoutineToDuration(
+    initialBlocks,
+    targetMinutes,
+    preferences.intensity,
+  );
+  const estimatedSeconds = estimateRoutineSeconds(blocks);
+  const estimatedMinutes = Math.max(1, Math.round(estimatedSeconds / 60));
+  const estimatedCalories = estimateCalories(blocks, preferences.weightKg);
+  const id = `ai-free-workout-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+  return {
+    id,
+    createdAt: new Date().toISOString(),
+    targetMinutes,
+    estimatedMinutes,
+    estimatedCalories,
+    preferences,
+    routine: {
+      id: `${id}-routine`,
+      name: blueprint.name || `Entrenamiento inteligente de ${targetMinutes} min`,
+      description:
+        blueprint.description ||
+        `Rutina diseñada por AI Coach y validada con el catálogo detectable de La Forja.`,
+      minimumCalories: 0,
+      plannedCalories: estimatedCalories,
+      estimatedMinutes,
+      blocks,
+    },
   };
 }

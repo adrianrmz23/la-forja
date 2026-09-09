@@ -29,6 +29,9 @@ export interface ExerciseCatalogEntry {
   mode: ExerciseMode;
   countUnit: ExerciseCountUnit;
   detector: ExerciseDetector;
+  recipeId?: string;
+  movementRecipe?: import("../types/movementEngine.ts").MovementRecipe;
+  sourceKey?: string;
   met: number;
   estimatedSecondsPerRep: number;
   baseRestSeconds: number;
@@ -386,6 +389,116 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
       advanced: { minimum: 10, maximum: 16, step: 1 },
     },
   },
+  {
+    key: "reverse-lunge-curl",
+    exerciseId: "recipe:reverse-lunge-curl",
+    name: "Desplante atrás con curl",
+    instructions: "Haz un desplante moderado, vuelve de pie, realiza un curl y baja los brazos.",
+    mode: "repetitions",
+    countUnit: "repetition",
+    detector: "movement-recipe",
+    recipeId: "reverse-lunge-curl",
+    sourceKey: "recipe:reverse-lunge-curl",
+    met: 6.3,
+    estimatedSecondsPerRep: 4.2,
+    baseRestSeconds: 22,
+    equipment: "optional-dumbbells",
+    themes: ["balanced", "strength"],
+    stages: ["main", "boss"],
+    targets: {
+      beginner: { minimum: 6, maximum: 10, step: 2 },
+      intermediate: { minimum: 8, maximum: 14, step: 2 },
+      advanced: { minimum: 12, maximum: 18, step: 2 },
+    },
+  },
+  {
+    key: "squat-curl",
+    exerciseId: "recipe:squat-curl",
+    name: "Sentadilla con curl",
+    instructions: "Haz una sentadilla cómoda, vuelve de pie, realiza un curl y baja los brazos.",
+    mode: "repetitions",
+    countUnit: "repetition",
+    detector: "movement-recipe",
+    recipeId: "squat-curl",
+    sourceKey: "recipe:squat-curl",
+    met: 6.5,
+    estimatedSecondsPerRep: 4,
+    baseRestSeconds: 22,
+    equipment: "optional-dumbbells",
+    themes: ["balanced", "strength"],
+    stages: ["main", "boss"],
+    targets: {
+      beginner: { minimum: 6, maximum: 10, step: 2 },
+      intermediate: { minimum: 8, maximum: 14, step: 2 },
+      advanced: { minimum: 12, maximum: 18, step: 2 },
+    },
+  },
+  {
+    key: "march-lateral-raise",
+    exerciseId: "recipe:march-lateral-raise",
+    name: "Marcha con elevación lateral",
+    instructions: "Eleva una rodilla y acompaña el movimiento con una elevación lateral cómoda.",
+    mode: "repetitions",
+    countUnit: "repetition",
+    detector: "movement-recipe",
+    recipeId: "march-lateral-raise",
+    sourceKey: "recipe:march-lateral-raise",
+    met: 5.8,
+    estimatedSecondsPerRep: 3.2,
+    baseRestSeconds: 18,
+    equipment: "optional-dumbbells",
+    themes: ["balanced", "strength", "cardio"],
+    stages: ["main", "boss"],
+    targets: {
+      beginner: { minimum: 8, maximum: 14, step: 2 },
+      intermediate: { minimum: 12, maximum: 18, step: 2 },
+      advanced: { minimum: 16, maximum: 24, step: 2 },
+    },
+  },
+  {
+    key: "side-step-curl",
+    exerciseId: "recipe:side-step-curl",
+    name: "Paso lateral con curl",
+    instructions: "Da un paso lateral amplio, realiza un curl y regresa al centro.",
+    mode: "repetitions",
+    countUnit: "repetition",
+    detector: "movement-recipe",
+    recipeId: "side-step-curl",
+    sourceKey: "recipe:side-step-curl",
+    met: 5.6,
+    estimatedSecondsPerRep: 3.6,
+    baseRestSeconds: 18,
+    equipment: "optional-dumbbells",
+    themes: ["balanced", "strength", "cardio"],
+    stages: ["main", "boss"],
+    targets: {
+      beginner: { minimum: 8, maximum: 14, step: 2 },
+      intermediate: { minimum: 12, maximum: 18, step: 2 },
+      advanced: { minimum: 16, maximum: 24, step: 2 },
+    },
+  },
+  {
+    key: "knee-lift-press",
+    exerciseId: "recipe:knee-lift-press",
+    name: "Rodilla con press",
+    instructions: "Eleva una rodilla y realiza un press cómodo por encima de los hombros.",
+    mode: "repetitions",
+    countUnit: "repetition",
+    detector: "movement-recipe",
+    recipeId: "knee-lift-press",
+    sourceKey: "recipe:knee-lift-press",
+    met: 6.4,
+    estimatedSecondsPerRep: 3.4,
+    baseRestSeconds: 20,
+    equipment: "optional-dumbbells",
+    themes: ["balanced", "strength", "cardio"],
+    stages: ["main", "boss"],
+    targets: {
+      beginner: { minimum: 8, maximum: 14, step: 2 },
+      intermediate: { minimum: 12, maximum: 18, step: 2 },
+      advanced: { minimum: 16, maximum: 24, step: 2 },
+    },
+  },
 ];
 
 export function getExercisesForStage(
@@ -395,6 +508,11 @@ export function getExercisesForStage(
   const safeTheme = theme === "boxing" ? "cardio" : theme;
 
   return exerciseCatalog.filter((exercise) => {
+    // Las recetas experimentales solo entran por AI Coach después de aprobarse en Movement Lab.
+    if (exercise.recipeId) {
+      return false;
+    }
+
     if (!exercise.stages.includes(stage)) {
       return false;
     }

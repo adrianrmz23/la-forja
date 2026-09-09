@@ -5,6 +5,7 @@ import {
   replaceFreeWorkoutExercise,
   type GenerateFreeWorkoutOptions,
 } from "../generators/freeWorkoutGenerator.ts";
+import { useExerciseIntelligenceStore } from "./exerciseIntelligenceStore.ts";
 import type {
   FreeWorkoutCompletionMetrics,
   FreeWorkoutHistoryEntry,
@@ -52,6 +53,16 @@ export const useFreeWorkoutStore = create<FreeWorkoutStore>()(
 
         if (!workout) {
           return null;
+        }
+
+        const currentExercise = workout.routine.blocks
+          .find((block) => block.id === blockId)
+          ?.exercises.find((exercise) => exercise.id === exerciseId);
+
+        if (currentExercise) {
+          useExerciseIntelligenceStore
+            .getState()
+            .recordReplacement(currentExercise.sourceKey ?? String(currentExercise.exerciseId));
         }
 
         const updatedWorkout = replaceFreeWorkoutExercise(

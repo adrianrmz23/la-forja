@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import {
   ArrowLeft,
+  Beaker,
+  Bot,
   Check,
   Clock3,
   Dumbbell,
@@ -21,6 +23,7 @@ import "./TrainingPage.css";
 import { useProfileStore } from "../stores/profileStore.ts";
 import { useFreeWorkoutStore } from "../stores/freeWorkoutStore.ts";
 import { getFreeWorkoutReplacementOptions } from "../generators/freeWorkoutGenerator.ts";
+import { generateWorkoutWithAI } from "../services/aiWorkoutService.ts";
 import {
   FREE_WORKOUT_LEVEL_ID,
   type FreeWorkoutFocus,
@@ -105,6 +108,7 @@ function TrainingPage() {
   const history = useFreeWorkoutStore((state) => state.history);
   const generateWorkout = useFreeWorkoutStore((state) => state.generateWorkout);
   const replaceExercise = useFreeWorkoutStore((state) => state.replaceExercise);
+  const setActiveWorkout = useFreeWorkoutStore((state) => state.setActiveWorkout);
 
   const [targetMinutes, setTargetMinutes] = useState(
     activeWorkout?.targetMinutes ?? 30,
@@ -119,6 +123,9 @@ function TrainingPage() {
   const [hasDumbbells, setHasDumbbells] = useState(
     activeWorkout?.preferences.hasDumbbells ?? true,
   );
+  const [generationMode, setGenerationMode] = useState<"local" | "ai">("ai");
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
 
   const [replacementTarget, setReplacementTarget] = useState<{
     blockId: string;
@@ -162,8 +169,9 @@ function TrainingPage() {
     );
   }, [activeWorkout, replacementTarget]);
 
-  function buildWorkout() {
+  async function buildWorkout() {
     setReplacementTarget(null);
+    setAiMessage(null);
 
     const customValue = Number(customMinutes);
     const resolvedMinutes =
@@ -175,7 +183,7 @@ function TrainingPage() {
       setTargetMinutes(resolvedMinutes);
     }
 
-    generateWorkout({
+    const options = {
       targetMinutes: resolvedMinutes,
       intensity,
       focus,
@@ -183,7 +191,22 @@ function TrainingPage() {
       difficulty: profile.fitnessLevel,
       preferredImpact: profile.preferredImpact,
       weightKg: profile.weightKg,
-    });
+    };
+
+    if (generationMode === "local") {
+      generateWorkout(options);
+      setAiMessage("Generación local instantánea.");
+      return;
+    }
+
+    setIsGeneratingAI(true);
+    try {
+      const result = await generateWorkoutWithAI(options);
+      setActiveWorkout(result.workout);
+      setAiMessage(result.usedAI ? `AI Coach: ${result.message}` : result.message);
+    } finally {
+      setIsGeneratingAI(false);
+    }
   }
 
   function applyCustomMinutes() {
@@ -362,9 +385,47 @@ function TrainingPage() {
               </span>
             </label>
 
-            <button className="training-generate-button" onClick={buildWorkout} type="button">
-              <Sparkles size={21} />
-              {activeWorkout ? "Generar otra rutina" : "Generar mi rutina"}
+            <div className="training-divider" />
+
+            <div className="training-section-heading training-section-heading--compact">
+              <span>04</span>
+              <div>
+                <h2>Modo de generación</h2>
+                <p>AI Coach usa CheaperInference y siempre conserva el generador local como respaldo.</p>
+              </div>
+            </div>
+
+            <div className="training-generation-grid">
+              <button
+                className={generationMode === "local" ? "training-generation-option training-generation-option--active" : "training-generation-option"}
+                onClick={() => setGenerationMode("local")}
+                type="button"
+              >
+                <Zap size={20} />
+                <strong>Automático</strong>
+                <small>Generador local instantáneo</small>
+              </button>
+              <button
+                className={generationMode === "ai" ? "training-generation-option training-generation-option--active" : "training-generation-option"}
+                onClick={() => setGenerationMode("ai")}
+                type="button"
+              >
+                <Bot size={20} />
+                <strong>AI Coach</strong>
+                <small>Planifica con ejercicios detectables y fiabilidad real</small>
+              </button>
+            </div>
+
+            <Link className="training-lab-link" to="/movement-lab">
+              <Beaker size={19} />
+              <span><strong>Laboratorio de movimientos</strong><small>Prueba y aprueba nuevos ejercicios compuestos</small></span>
+            </Link>
+
+            {aiMessage && <p className="training-ai-message">{aiMessage}</p>}
+
+            <button className="training-generate-button" disabled={isGeneratingAI} onClick={() => void buildWorkout()} type="button">
+              {generationMode === "ai" ? <Bot size={21} /> : <Sparkles size={21} />}
+              {isGeneratingAI ? "Forjando con IA…" : activeWorkout ? "Generar otra rutina" : "Generar mi rutina"}
             </button>
           </section>
 
@@ -611,6 +672,8 @@ function TrainingPage() {
             </div>
           )}
         </section>
+
+        <footer className="training-data-credit">Exercise data by RepDB (repdb.co) · La IA solo recibe metadatos permitidos, nunca imágenes de RepDB.</footer>
       </div>
     </main>
   );

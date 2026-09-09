@@ -416,7 +416,7 @@ export function useRoutineEngine({
    * base, así que esta función normalmente no se ejecuta.
    */
   const resolveCalorieGoal = useCallback(
-    (_goalReached: boolean) => {
+    () => {
       /*
        * Compatibilidad con versiones anteriores: aunque BattlePage
        * intente resolver una meta, nunca se agregan ejercicios extra.

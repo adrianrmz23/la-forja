@@ -51,3 +51,19 @@ export interface FreeWorkoutHistoryEntry
   focus: FreeWorkoutFocus;
   hasDumbbells: boolean;
 }
+
+export type FreeWorkoutGenerationMode = "local" | "ai";
+
+export interface AIWorkoutBlockBlueprint {
+  id: string;
+  name: string;
+  rounds: number;
+  exerciseKeys: string[];
+}
+
+export interface AIWorkoutBlueprint {
+  name: string;
+  description: string;
+  rationale: string;
+  blocks: AIWorkoutBlockBlueprint[];
+}

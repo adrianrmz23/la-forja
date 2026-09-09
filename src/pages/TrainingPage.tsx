@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Beaker,
@@ -119,6 +119,62 @@ const MOVEMENT_PHASE_LABELS: Record<string, string> = {
   arms_down: "Regresa los brazos abajo",
 };
 
+
+
+interface RepDbVisualRecord {
+  id: string;
+  name_es: string;
+  image_flat_start?: string | null;
+  image_flat_peak?: string | null;
+  image_flat_main?: string | null;
+}
+
+interface RepDbVisualResponse {
+  rows?: Array<{ row?: RepDbVisualRecord } | RepDbVisualRecord>;
+}
+
+const REPDB_ASSET_BASE =
+  "https://huggingface.co/datasets/RepDB/exercise-dataset/resolve/main/";
+
+const BUILTIN_TO_REPDB_VISUAL: Partial<Record<RoutineExercise["exerciseId"], string>> = {
+  squat: "bodyweight-squat",
+  "reverse-lunge": "reverse-lunge",
+  "biceps-curl": "dumbbell-biceps-curl",
+  "shoulder-press": "arnold-press",
+  "calf-raise": "standing-calf-raise",
+};
+
+function resolveRepDbAsset(path?: string | null): string | null {
+  if (!path) {
+    return null;
+  }
+
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+
+  return `${REPDB_ASSET_BASE}${path}`;
+}
+
+function getRepDbVisualKeys(exercise: RoutineExercise): string[] {
+  const keys = new Set<string>();
+
+  if (String(exercise.exerciseId).startsWith("repdb:")) {
+    keys.add(String(exercise.exerciseId).replace("repdb:", ""));
+  }
+
+  if (exercise.sourceKey?.startsWith("repdb:")) {
+    keys.add(exercise.sourceKey.replace("repdb:", ""));
+  }
+
+  const mapped = BUILTIN_TO_REPDB_VISUAL[exercise.exerciseId];
+  if (mapped) {
+    keys.add(mapped);
+  }
+
+  return [...keys];
+}
+
 const DETECTOR_GUIDANCE: Partial<Record<RoutineExercise["detector"], string>> = {
   march: "Alterna las piernas con pasos claros y mantén el torso estable.",
   squat: "Flexiona las piernas, baja de forma cómoda y vuelve completamente de pie.",
@@ -218,6 +274,103 @@ function getMotionVariant(exercise: RoutineExercise): string {
   }
 }
 
+
+function RepDbMotionPreview({ record }: { record: RepDbVisualRecord }) {
+  const frames = [
+    {
+      label: "Inicio",
+      url: resolveRepDbAsset(record.image_flat_start),
+    },
+    {
+      label: record.image_flat_peak ? "Pico" : "Referencia",
+      url: resolveRepDbAsset(record.image_flat_peak ?? record.image_flat_main ?? null),
+    },
+  ].filter((frame): frame is { label: string; url: string } => Boolean(frame.url));
+
+  const [frameIndex, setFrameIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (paused || frames.length <= 1) {
+      return undefined;
+    }
+
+    const timer = window.setInterval(() => {
+      setFrameIndex((current) => (current + 1) % frames.length);
+    }, 1400);
+
+    return () => window.clearInterval(timer);
+  }, [frames.length, paused]);
+
+  if (frames.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="training-repdb-demo" aria-label="Secuencia visual de RepDB">
+      <div className="training-repdb-demo__topline">
+        <span>
+          <Sparkles size={13} />
+          SECUENCIA VISUAL REPDB
+        </span>
+        <small>Referencia real del ejercicio</small>
+      </div>
+
+      <div className="training-repdb-stage">
+        <div className="training-repdb-stage__frame">
+          <img
+            alt={`${record.name_es} · ${frames[frameIndex].label}`}
+            className="training-repdb-stage__image"
+            src={frames[frameIndex].url}
+          />
+          <span className="training-repdb-stage__badge">{frames[frameIndex].label}</span>
+          {frames.length > 1 && (
+            <div className="training-repdb-stage__progress" aria-hidden="true">
+              {frames.map((frame, index) => (
+                <span
+                  className={index === frameIndex ? "training-repdb-stage__dot training-repdb-stage__dot--active" : "training-repdb-stage__dot"}
+                  key={frame.label}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {frames.length > 1 && <div className="training-repdb-stage__arrow">→</div>}
+
+        {frames.length > 1 && (
+          <div className="training-repdb-stage__thumbnails">
+            {frames.map((frame, index) => (
+              <button
+                className={index === frameIndex ? "training-repdb-stage__thumb training-repdb-stage__thumb--active" : "training-repdb-stage__thumb"}
+                key={frame.label}
+                onClick={() => setFrameIndex(index)}
+                type="button"
+              >
+                <img alt={frame.label} src={frame.url} />
+                <span>{frame.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="training-repdb-demo__controls">
+        {frames.length > 1 ? (
+          <button onClick={() => setPaused((current) => !current)} type="button">
+            {paused ? <Play size={15} fill="currentColor" /> : <Pause size={15} />}
+            {paused ? "Reproducir secuencia" : "Pausar secuencia"}
+          </button>
+        ) : (
+          <span>Imagen principal disponible</span>
+        )}
+
+        <small>RepDB no trae GIFs: La Forja alterna automáticamente las imágenes reales de inicio y pico.</small>
+      </div>
+    </section>
+  );
+}
+
 function ExerciseMotionDemo({ exercise }: { exercise: RoutineExercise }) {
   const [paused, setPaused] = useState(false);
   const [slow, setSlow] = useState(false);
@@ -309,7 +462,7 @@ function ExerciseMotionDemo({ exercise }: { exercise: RoutineExercise }) {
       </div>
 
       <p className="training-motion-demo__note">
-        La animación sirve para entender el recorrido general. La cámara sigue usando una detección permisiva, no exige copiar el dibujo con precisión.
+        La animación local aparece como respaldo cuando no existe una secuencia visual de RepDB. La cámara sigue usando una detección permisiva, no exige copiar el dibujo con precisión.
       </p>
     </section>
   );
@@ -350,6 +503,9 @@ function TrainingPage() {
     exercise: RoutineExercise;
   } | null>(null);
 
+  const [repDbVisualMap, setRepDbVisualMap] = useState<Record<string, RepDbVisualRecord>>({});
+  const [repDbVisualState, setRepDbVisualState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+
   const selectedPreset = TIME_PRESETS.includes(
     targetMinutes as (typeof TIME_PRESETS)[number],
   )
@@ -386,6 +542,73 @@ function TrainingPage() {
       4,
     );
   }, [activeWorkout, replacementTarget]);
+
+  useEffect(() => {
+    if (!exercisePreview || repDbVisualState !== "idle") {
+      return;
+    }
+
+    const repDbKeys = getRepDbVisualKeys(exercisePreview.exercise);
+    if (repDbKeys.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadRepDbVisuals() {
+      setRepDbVisualState("loading");
+
+      try {
+        const response = await fetch("/api/repdb?limit=601");
+        if (!response.ok) {
+          throw new Error(`RepDB ${response.status}`);
+        }
+
+        const payload = (await response.json()) as RepDbVisualResponse;
+        const records = (payload.rows ?? [])
+          .map((item) => ("row" in item && item.row ? item.row : (item as RepDbVisualRecord)))
+          .filter((item): item is RepDbVisualRecord => Boolean(item?.id));
+
+        if (cancelled) {
+          return;
+        }
+
+        const nextMap = records.reduce<Record<string, RepDbVisualRecord>>((accumulator, record) => {
+          accumulator[record.id] = record;
+          return accumulator;
+        }, {});
+
+        setRepDbVisualMap(nextMap);
+        setRepDbVisualState("ready");
+      } catch {
+        if (!cancelled) {
+          setRepDbVisualState("error");
+        }
+      }
+    }
+
+    void loadRepDbVisuals();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [exercisePreview, repDbVisualState]);
+
+  const repDbPreviewRecord = useMemo(() => {
+    if (!exercisePreview) {
+      return null;
+    }
+
+    const keys = getRepDbVisualKeys(exercisePreview.exercise);
+    for (const key of keys) {
+      const record = repDbVisualMap[key];
+      if (record?.image_flat_start || record?.image_flat_peak || record?.image_flat_main) {
+        return record;
+      }
+    }
+
+    return null;
+  }, [exercisePreview, repDbVisualMap]);
 
   async function buildWorkout() {
     setReplacementTarget(null);
@@ -963,7 +1186,15 @@ function TrainingPage() {
               )}
             </div>
 
-            <ExerciseMotionDemo exercise={exercisePreview.exercise} />
+            {repDbPreviewRecord ? (
+              <RepDbMotionPreview record={repDbPreviewRecord} />
+            ) : (
+              <ExerciseMotionDemo exercise={exercisePreview.exercise} />
+            )}
+
+            {repDbVisualState === "loading" && getRepDbVisualKeys(exercisePreview.exercise).length > 0 && !repDbPreviewRecord ? (
+              <p className="training-movement-sheet__loading">Cargando referencia visual de RepDB…</p>
+            ) : null}
 
             <section className="training-movement-sheet__section">
               <span className="training-movement-sheet__eyebrow">CÓMO HACERLO</span>

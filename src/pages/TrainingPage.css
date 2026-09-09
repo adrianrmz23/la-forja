@@ -2225,3 +2225,201 @@
     animation-iteration-count: 1 !important;
   }
 }
+
+.training-repdb-demo {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+    rgba(11, 13, 21, 0.9);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.training-repdb-demo__topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.76rem;
+  letter-spacing: 0.14em;
+}
+
+.training-repdb-demo__topline span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.training-repdb-demo__topline small {
+  color: rgba(255, 255, 255, 0.56);
+  letter-spacing: 0.02em;
+}
+
+.training-repdb-stage {
+  display: grid;
+  gap: 10px;
+}
+
+.training-repdb-stage__frame {
+  position: relative;
+  min-height: 250px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02) 48%, rgba(0, 0, 0, 0.15) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.training-repdb-stage__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 250px;
+  object-fit: contain;
+  background: linear-gradient(180deg, rgba(10, 12, 19, 0.96), rgba(24, 25, 35, 0.96));
+}
+
+.training-repdb-stage__badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(14, 16, 24, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.training-repdb-stage__progress {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(14, 16, 24, 0.78);
+}
+
+.training-repdb-stage__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.training-repdb-stage__dot--active {
+  width: 20px;
+  background: linear-gradient(135deg, rgba(255, 168, 76, 1), rgba(255, 112, 58, 1));
+}
+
+.training-repdb-stage__arrow {
+  justify-self: center;
+  color: rgba(255, 255, 255, 0.34);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.training-repdb-stage__thumbnails {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.training-repdb-stage__thumb {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.training-repdb-stage__thumb img {
+  width: 100%;
+  height: 96px;
+  object-fit: contain;
+  background: linear-gradient(180deg, rgba(10, 12, 19, 0.96), rgba(24, 25, 35, 0.96));
+  border-radius: 12px;
+}
+
+.training-repdb-stage__thumb span {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.training-repdb-stage__thumb--active {
+  border-color: rgba(255, 145, 77, 0.78);
+  box-shadow: 0 0 0 1px rgba(255, 145, 77, 0.2), 0 18px 38px rgba(0, 0, 0, 0.22);
+}
+
+.training-repdb-demo__controls {
+  display: grid;
+  gap: 8px;
+}
+
+.training-repdb-demo__controls > button {
+  justify-self: start;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(255, 146, 87, 0.18), rgba(255, 96, 61, 0.22));
+  color: #fff;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.training-repdb-demo__controls > span {
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.training-repdb-demo__controls > small {
+  color: rgba(255, 255, 255, 0.56);
+  line-height: 1.5;
+}
+
+.training-movement-sheet__loading {
+  margin: -4px 0 2px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 620px) {
+  .training-repdb-demo {
+    padding: 11px;
+  }
+
+  .training-repdb-demo__topline {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .training-repdb-stage__frame,
+  .training-repdb-stage__image {
+    min-height: 210px;
+  }
+
+  .training-repdb-stage__thumbnails {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .training-repdb-stage__thumb img {
+    height: 82px;
+  }
+}

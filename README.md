@@ -1,23 +1,15 @@
-# La Forja · Popup animado v4
+# La Forja — RepDB visual v5
 
-Reemplaza únicamente:
+## Qué cambia
+- El popup **Ver** dentro de la rutina ahora intenta usar la referencia visual real de **RepDB**.
+- Si RepDB tiene imágenes `image_flat_start`, `image_flat_peak` o `image_flat_main`, el popup muestra una **secuencia visual automática** (Inicio ↔ Pico/Referencia).
+- Si el ejercicio no tiene referencia visual compatible en RepDB, la app conserva la animación local SVG como respaldo.
+- Mantiene los botones para ver/cambiar ejercicio y no toca `BattlePage.tsx`.
 
+## Archivos a reemplazar
 - `src/pages/TrainingPage.tsx`
 - `src/pages/TrainingPage.css`
 
-## Qué cambia
-
-- El popup **Ver** ahora incluye una animación orientativa del ejercicio.
-- Las animaciones se adaptan al detector: marcha, sentadilla, desplante, jacks, curl, press, elevaciones y compuestos.
-- Las recetas del Movement Engine intentan combinar sus primitivas para mostrar el movimiento compuesto correspondiente.
-- Botón reproducir/pausar.
-- Selector velocidad normal/lenta.
-- Etiqueta del origen técnico del ejercicio: detector nativo, Movement Engine, RepDB o movimiento creado por IA.
-- La animación es visual/orientativa y no modifica los umbrales de MediaPipe.
-
-## Verificación
-
-```bash
-npm run lint
-npm run build
-```
+## Notas
+- RepDB no trae GIFs; la app alterna automáticamente las imágenes reales de inicio y pico para dar sensación de animación.
+- Esto es compatible con AI Coach: que una rutina sea generada por IA **no significa** que todos los ejercicios deban ser nuevos. AI Coach sigue usando muchos ejercicios locales porque son los más fiables y detectables. Conforme apruebes más ejercicios en Movement Lab, entrará más variedad.

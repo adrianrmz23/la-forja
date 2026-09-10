@@ -2423,3 +2423,39 @@
     height: 82px;
   }
 }
+
+.training-repdb-empty {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.training-repdb-empty > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.training-repdb-empty > div {
+  display: grid;
+  gap: 5px;
+}
+
+.training-repdb-empty strong {
+  color: #fff;
+  font-size: 0.95rem;
+}
+
+.training-repdb-empty span {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.training-repdb-empty--loading {
+  align-items: center;
+}

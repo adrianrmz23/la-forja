@@ -136,24 +136,63 @@ interface RepDbVisualResponse {
 const REPDB_ASSET_BASE =
   "https://huggingface.co/datasets/RepDB/exercise-dataset/resolve/main/";
 
-const BUILTIN_TO_REPDB_VISUAL: Partial<Record<RoutineExercise["exerciseId"], string>> = {
-  squat: "bodyweight-squat",
-  "reverse-lunge": "reverse-lunge",
-  "biceps-curl": "dumbbell-biceps-curl",
-  "shoulder-press": "arnold-press",
-  "calf-raise": "standing-calf-raise",
+const BUILTIN_TO_REPDB_VISUAL: Partial<Record<RoutineExercise["exerciseId"], string[]>> = {
+  "active-march": ["high-knees"],
+  "step-jack": ["jumping-jacks"],
+  "high-knees": ["high-knees"],
+  "jumping-jack": ["jumping-jacks"],
+  squat: ["bodyweight-squat"],
+  "reverse-lunge": ["reverse-lunge"],
+  "calf-raise": ["bodyweight-calf-raise"],
+  "knee-to-elbow": ["high-knees"],
+  "lateral-step-squat": ["side-lunge", "bodyweight-squat"],
+  "biceps-curl": ["bicep-curl"],
+  "shoulder-press": ["arnold-press"],
+  "lateral-raise": ["lateral-raise"],
+  "front-raise": ["dumbbell-front-raise"],
+  "march-press": ["high-knees", "arnold-press"],
+  "step-jack-press": ["jumping-jacks", "arnold-press"],
+  "squat-knee-drive": ["bodyweight-squat", "high-knees"],
+  "squat-to-press": ["bodyweight-squat", "arnold-press"],
+};
+
+const DETECTOR_TO_REPDB_VISUAL: Partial<Record<RoutineExercise["detector"], string[]>> = {
+  march: ["high-knees"],
+  "high-knees": ["high-knees"],
+  squat: ["bodyweight-squat"],
+  lunge: ["reverse-lunge"],
+  "jumping-jack": ["jumping-jacks"],
+  "step-jack": ["jumping-jacks"],
+  "calf-raise": ["bodyweight-calf-raise"],
+  "knee-to-elbow": ["high-knees"],
+  "lateral-step-squat": ["side-lunge", "bodyweight-squat"],
+  "biceps-curl": ["bicep-curl"],
+  "shoulder-press": ["arnold-press"],
+  "lateral-raise": ["lateral-raise"],
+  "front-raise": ["dumbbell-front-raise"],
+  "squat-to-press": ["bodyweight-squat", "arnold-press"],
+  "march-press": ["high-knees", "arnold-press"],
+  "step-jack-press": ["jumping-jacks", "arnold-press"],
+  "squat-knee-drive": ["bodyweight-squat", "high-knees"],
 };
 
 function resolveRepDbAsset(path?: string | null): string | null {
-  if (!path) {
-    return null;
-  }
-
-  if (path.startsWith("http://") || path.startsWith("https://")) {
-    return path;
-  }
-
+  if (!path) return null;
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
   return `${REPDB_ASSET_BASE}${path}`;
+}
+
+function addMovementRecipeVisuals(exercise: RoutineExercise, keys: Set<string>) {
+  const sequence = exercise.movementRecipe?.sequence ?? [];
+  const has = (phase: string) => sequence.includes(phase as never);
+
+  if (has("squat_down")) keys.add("bodyweight-squat");
+  if (has("lunge_down")) keys.add("reverse-lunge");
+  if (has("knee_lift")) keys.add("high-knees");
+  if (has("step_wide")) keys.add("side-lunge");
+  if (has("elbows_flexed")) keys.add("bicep-curl");
+  if (has("arms_overhead")) keys.add("arnold-press");
+  if (has("arms_lateral")) keys.add("lateral-raise");
 }
 
 function getRepDbVisualKeys(exercise: RoutineExercise): string[] {
@@ -167,10 +206,9 @@ function getRepDbVisualKeys(exercise: RoutineExercise): string[] {
     keys.add(exercise.sourceKey.replace("repdb:", ""));
   }
 
-  const mapped = BUILTIN_TO_REPDB_VISUAL[exercise.exerciseId];
-  if (mapped) {
-    keys.add(mapped);
-  }
+  for (const key of BUILTIN_TO_REPDB_VISUAL[exercise.exerciseId] ?? []) keys.add(key);
+  for (const key of DETECTOR_TO_REPDB_VISUAL[exercise.detector] ?? []) keys.add(key);
+  addMovementRecipeVisuals(exercise, keys);
 
   return [...keys];
 }
@@ -197,273 +235,85 @@ const DETECTOR_GUIDANCE: Partial<Record<RoutineExercise["detector"], string>> = 
 };
 
 
-function getExerciseSourceLabel(exercise: RoutineExercise): string {
-  if (String(exercise.exerciseId).startsWith("ai:")) {
-    return "Movimiento creado por IA";
-  }
+function RepDbMotionPreview({
+  exerciseName,
+  records,
+}: {
+  exerciseName: string;
+  records: RepDbVisualRecord[];
+}) {
+  const frames = records.flatMap((record) => {
+    const candidates = [
+      { label: `${record.name_es} · Inicio`, url: resolveRepDbAsset(record.image_flat_start) },
+      { label: `${record.name_es} · Pico`, url: resolveRepDbAsset(record.image_flat_peak) },
+      { label: `${record.name_es} · Referencia`, url: resolveRepDbAsset(record.image_flat_main) },
+    ];
 
-  if (exercise.source === "repdb") {
-    return "Referencia RepDB";
-  }
-
-  if (exercise.source === "recipe" || exercise.detector === "movement-recipe") {
-    return "Movement Engine";
-  }
-
-  return "Detector nativo";
-}
-
-function getMotionVariant(exercise: RoutineExercise): string {
-  const sequence = exercise.movementRecipe?.sequence ?? [];
-  const has = (phase: string) => sequence.includes(phase as never);
-
-  if (exercise.detector === "movement-recipe") {
-    if (has("lunge_down") && has("elbows_flexed")) return "lunge-curl";
-    if (has("squat_down") && has("arms_overhead")) return "squat-press";
-    if (has("squat_down") && has("elbows_flexed")) return "squat-curl";
-    if (has("knee_lift") && has("arms_overhead")) return "knee-press";
-    if (has("knee_lift") && has("arms_lateral")) return "knee-lateral";
-    if (has("step_wide") && has("arms_overhead")) return "step-press";
-    if (has("step_wide") && has("elbows_flexed")) return "step-curl";
-    if (has("squat_down")) return "squat";
-    if (has("lunge_down")) return "lunge";
-    if (has("knee_lift")) return "knee-lift";
-    if (has("step_wide")) return "step-jack";
-    if (has("elbows_flexed")) return "curl";
-    if (has("arms_overhead")) return "press";
-    if (has("arms_lateral")) return "lateral-raise";
-  }
-
-  switch (exercise.detector) {
-    case "march":
-      return "march";
-    case "high-knees":
-      return "knee-lift";
-    case "squat":
-      return "squat";
-    case "lunge":
-      return "lunge";
-    case "jumping-jack":
-      return "jack";
-    case "step-jack":
-      return "step-jack";
-    case "calf-raise":
-      return "calf-raise";
-    case "knee-to-elbow":
-      return "knee-elbow";
-    case "squat-to-press":
-      return "squat-press";
-    case "march-press":
-      return "knee-press";
-    case "step-jack-press":
-      return "step-press";
-    case "squat-knee-drive":
-      return "squat-knee";
-    case "lateral-step-squat":
-      return "side-squat";
-    case "biceps-curl":
-      return "curl";
-    case "shoulder-press":
-      return "press";
-    case "lateral-raise":
-      return "lateral-raise";
-    case "front-raise":
-      return "front-raise";
-    default:
-      return "neutral";
-  }
-}
-
-
-function RepDbMotionPreview({ record }: { record: RepDbVisualRecord }) {
-  const frames = [
-    {
-      label: "Inicio",
-      url: resolveRepDbAsset(record.image_flat_start),
-    },
-    {
-      label: record.image_flat_peak ? "Pico" : "Referencia",
-      url: resolveRepDbAsset(record.image_flat_peak ?? record.image_flat_main ?? null),
-    },
-  ].filter((frame): frame is { label: string; url: string } => Boolean(frame.url));
+    return candidates.filter((frame): frame is { label: string; url: string } => Boolean(frame.url));
+  });
 
   const [frameIndex, setFrameIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 
   useEffect(() => {
-    if (paused || frames.length <= 1) {
-      return undefined;
-    }
-
+    if (paused || frames.length <= 1) return undefined;
     const timer = window.setInterval(() => {
       setFrameIndex((current) => (current + 1) % frames.length);
-    }, 1400);
-
+    }, 1300);
     return () => window.clearInterval(timer);
   }, [frames.length, paused]);
 
-  if (frames.length === 0) {
-    return null;
-  }
+  if (frames.length === 0) return null;
 
   return (
-    <section className="training-repdb-demo" aria-label="Secuencia visual de RepDB">
+    <section className="training-repdb-demo" aria-label={`Referencia visual de ${exerciseName}`}>
       <div className="training-repdb-demo__topline">
-        <span>
-          <Sparkles size={13} />
-          SECUENCIA VISUAL REPDB
-        </span>
-        <small>Referencia real del ejercicio</small>
+        <span><Sparkles size={13} />REFERENCIA VISUAL REPDB</span>
+        <small>{records.length > 1 ? "Movimiento compuesto · componentes RepDB" : "Ilustración RepDB"}</small>
       </div>
 
       <div className="training-repdb-stage">
         <div className="training-repdb-stage__frame">
           <img
-            alt={`${record.name_es} · ${frames[frameIndex].label}`}
+            alt={frames[frameIndex].label}
             className="training-repdb-stage__image"
             src={frames[frameIndex].url}
           />
           <span className="training-repdb-stage__badge">{frames[frameIndex].label}</span>
-          {frames.length > 1 && (
-            <div className="training-repdb-stage__progress" aria-hidden="true">
-              {frames.map((frame, index) => (
-                <span
-                  className={index === frameIndex ? "training-repdb-stage__dot training-repdb-stage__dot--active" : "training-repdb-stage__dot"}
-                  key={frame.label}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {frames.length > 1 && <div className="training-repdb-stage__arrow">→</div>}
-
-        {frames.length > 1 && (
-          <div className="training-repdb-stage__thumbnails">
+          <div className="training-repdb-stage__progress" aria-hidden="true">
             {frames.map((frame, index) => (
-              <button
-                className={index === frameIndex ? "training-repdb-stage__thumb training-repdb-stage__thumb--active" : "training-repdb-stage__thumb"}
-                key={frame.label}
-                onClick={() => setFrameIndex(index)}
-                type="button"
-              >
-                <img alt={frame.label} src={frame.url} />
-                <span>{frame.label}</span>
-              </button>
+              <span
+                className={index === frameIndex ? "training-repdb-stage__dot training-repdb-stage__dot--active" : "training-repdb-stage__dot"}
+                key={`${frame.label}-${index}`}
+              />
             ))}
           </div>
-        )}
+        </div>
+
+        <div className="training-repdb-stage__thumbnails">
+          {frames.map((frame, index) => (
+            <button
+              className={index === frameIndex ? "training-repdb-stage__thumb training-repdb-stage__thumb--active" : "training-repdb-stage__thumb"}
+              key={`${frame.label}-${index}`}
+              onClick={() => setFrameIndex(index)}
+              type="button"
+            >
+              <img alt="" src={frame.url} />
+              <span>{frame.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="training-repdb-demo__controls">
-        {frames.length > 1 ? (
+        {frames.length > 1 && (
           <button onClick={() => setPaused((current) => !current)} type="button">
             {paused ? <Play size={15} fill="currentColor" /> : <Pause size={15} />}
             {paused ? "Reproducir secuencia" : "Pausar secuencia"}
           </button>
-        ) : (
-          <span>Imagen principal disponible</span>
         )}
-
-        <small>RepDB no trae GIFs: La Forja alterna automáticamente las imágenes reales de inicio y pico.</small>
+        <small>Estas son imágenes reales del dataset gratuito de RepDB. La edición gratuita no incluye animaciones continuas; La Forja alterna Inicio/Pico para mostrar el recorrido.</small>
       </div>
-    </section>
-  );
-}
-
-function ExerciseMotionDemo({ exercise }: { exercise: RoutineExercise }) {
-  const [paused, setPaused] = useState(false);
-  const [slow, setSlow] = useState(false);
-  const motionVariant = getMotionVariant(exercise);
-
-  return (
-    <section className="training-motion-demo" aria-label="Demostración animada del ejercicio">
-      <div className="training-motion-demo__topline">
-        <span>
-          <Sparkles size={13} />
-          ANIMACIÓN ORIENTATIVA
-        </span>
-        <small>{getExerciseSourceLabel(exercise)}</small>
-      </div>
-
-      <div
-        className={`training-motion-stage training-motion-stage--${motionVariant} ${
-          paused ? "training-motion-stage--paused" : ""
-        } ${slow ? "training-motion-stage--slow" : ""}`}
-      >
-        <svg
-          aria-label={`Demostración de ${exercise.name}`}
-          className="training-motion-figure"
-          role="img"
-          viewBox="0 0 220 220"
-        >
-          <ellipse className="training-motion-shadow" cx="110" cy="205" rx="55" ry="7" />
-
-          <g className="training-motion-person">
-            <circle className="training-motion-head" cx="110" cy="42" r="16" />
-            <line className="training-motion-bone training-motion-torso" x1="110" y1="60" x2="110" y2="118" />
-            <line className="training-motion-shoulders" x1="87" y1="76" x2="133" y2="76" />
-
-            <g className="training-motion-arm training-motion-arm--left">
-              <line className="training-motion-bone" x1="110" y1="76" x2="84" y2="101" />
-              <g className="training-motion-forearm training-motion-forearm--left">
-                <line className="training-motion-bone" x1="84" y1="101" x2="70" y2="136" />
-                <circle className="training-motion-joint" cx="70" cy="136" r="4" />
-              </g>
-              <circle className="training-motion-joint" cx="84" cy="101" r="4" />
-            </g>
-
-            <g className="training-motion-arm training-motion-arm--right">
-              <line className="training-motion-bone" x1="110" y1="76" x2="136" y2="101" />
-              <g className="training-motion-forearm training-motion-forearm--right">
-                <line className="training-motion-bone" x1="136" y1="101" x2="150" y2="136" />
-                <circle className="training-motion-joint" cx="150" cy="136" r="4" />
-              </g>
-              <circle className="training-motion-joint" cx="136" cy="101" r="4" />
-            </g>
-
-            <g className="training-motion-leg training-motion-leg--left">
-              <line className="training-motion-bone" x1="110" y1="118" x2="88" y2="158" />
-              <line className="training-motion-bone" x1="88" y1="158" x2="78" y2="198" />
-              <circle className="training-motion-joint" cx="88" cy="158" r="4" />
-            </g>
-
-            <g className="training-motion-leg training-motion-leg--right">
-              <line className="training-motion-bone" x1="110" y1="118" x2="132" y2="158" />
-              <line className="training-motion-bone" x1="132" y1="158" x2="142" y2="198" />
-              <circle className="training-motion-joint" cx="132" cy="158" r="4" />
-            </g>
-
-            <circle className="training-motion-joint" cx="110" cy="76" r="4" />
-            <circle className="training-motion-joint" cx="110" cy="118" r="5" />
-          </g>
-        </svg>
-
-        <div className="training-motion-stage__pulse" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-        </div>
-      </div>
-
-      <div className="training-motion-demo__controls">
-        <button onClick={() => setPaused((current) => !current)} type="button">
-          {paused ? <Play size={15} fill="currentColor" /> : <Pause size={15} />}
-          {paused ? "Reproducir" : "Pausar"}
-        </button>
-
-        <button
-          className={slow ? "training-motion-control--active" : ""}
-          onClick={() => setSlow((current) => !current)}
-          type="button"
-        >
-          {slow ? "Velocidad lenta" : "Velocidad normal"}
-        </button>
-      </div>
-
-      <p className="training-motion-demo__note">
-        La animación local aparece como respaldo cuando no existe una secuencia visual de RepDB. La cámara sigue usando una detección permisiva, no exige copiar el dibujo con precisión.
-      </p>
     </section>
   );
 }
@@ -594,20 +444,13 @@ function TrainingPage() {
     };
   }, [exercisePreview, repDbVisualState]);
 
-  const repDbPreviewRecord = useMemo(() => {
-    if (!exercisePreview) {
-      return null;
-    }
-
-    const keys = getRepDbVisualKeys(exercisePreview.exercise);
-    for (const key of keys) {
-      const record = repDbVisualMap[key];
-      if (record?.image_flat_start || record?.image_flat_peak || record?.image_flat_main) {
-        return record;
-      }
-    }
-
-    return null;
+  const repDbPreviewRecords = useMemo(() => {
+    if (!exercisePreview) return [];
+    return getRepDbVisualKeys(exercisePreview.exercise)
+      .map((key) => repDbVisualMap[key])
+      .filter((record): record is RepDbVisualRecord =>
+        Boolean(record && (record.image_flat_start || record.image_flat_peak || record.image_flat_main)),
+      );
   }, [exercisePreview, repDbVisualMap]);
 
   async function buildWorkout() {
@@ -1186,15 +1029,26 @@ function TrainingPage() {
               )}
             </div>
 
-            {repDbPreviewRecord ? (
-              <RepDbMotionPreview record={repDbPreviewRecord} />
+            {repDbPreviewRecords.length > 0 ? (
+              <RepDbMotionPreview
+                key={exercisePreview.exercise.id}
+                exerciseName={exercisePreview.exercise.name}
+                records={repDbPreviewRecords}
+              />
+            ) : repDbVisualState === "loading" ? (
+              <div className="training-repdb-empty training-repdb-empty--loading">
+                <Sparkles size={20} />
+                <span>Cargando ilustraciones reales de RepDB…</span>
+              </div>
             ) : (
-              <ExerciseMotionDemo exercise={exercisePreview.exercise} />
+              <div className="training-repdb-empty">
+                <Eye size={20} />
+                <div>
+                  <strong>RepDB no tiene una referencia visual exacta para este movimiento.</strong>
+                  <span>No mostramos la animación SVG anterior para evitar confundirte con una demostración inventada.</span>
+                </div>
+              </div>
             )}
-
-            {repDbVisualState === "loading" && getRepDbVisualKeys(exercisePreview.exercise).length > 0 && !repDbPreviewRecord ? (
-              <p className="training-movement-sheet__loading">Cargando referencia visual de RepDB…</p>
-            ) : null}
 
             <section className="training-movement-sheet__section">
               <span className="training-movement-sheet__eyebrow">CÓMO HACERLO</span>

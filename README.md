@@ -1,15 +1,11 @@
-# La Forja — RepDB visual v5
+# La Forja — fix lint RepDB visual v6.1
 
-## Qué cambia
-- El popup **Ver** dentro de la rutina ahora intenta usar la referencia visual real de **RepDB**.
-- Si RepDB tiene imágenes `image_flat_start`, `image_flat_peak` o `image_flat_main`, el popup muestra una **secuencia visual automática** (Inicio ↔ Pico/Referencia).
-- Si el ejercicio no tiene referencia visual compatible en RepDB, la app conserva la animación local SVG como respaldo.
-- Mantiene los botones para ver/cambiar ejercicio y no toca `BattlePage.tsx`.
+Corrige `react-hooks/set-state-in-effect` en `TrainingPage.tsx`.
 
-## Archivos a reemplazar
+## Cambio
+Se eliminó el efecto que hacía `setFrameIndex(0)` y `setPaused(false)` sincrónicamente. El componente `RepDbMotionPreview` ahora recibe `key={exercisePreview.exercise.id}`, por lo que React reinicia su estado automáticamente al abrir otro ejercicio, sin necesitar ese efecto.
+
+## Reemplazar
 - `src/pages/TrainingPage.tsx`
-- `src/pages/TrainingPage.css`
 
-## Notas
-- RepDB no trae GIFs; la app alterna automáticamente las imágenes reales de inicio y pico para dar sensación de animación.
-- Esto es compatible con AI Coach: que una rutina sea generada por IA **no significa** que todos los ejercicios deban ser nuevos. AI Coach sigue usando muchos ejercicios locales porque son los más fiables y detectables. Conforme apruebes más ejercicios en Movement Lab, entrará más variedad.
+`TrainingPage.css` no necesita cambios respecto a v6.

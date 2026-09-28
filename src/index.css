@@ -313,8 +313,13 @@ button {
 }
 
 .home-actions {
-  display: flex;
-  gap: 14px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.home-actions .button--primary {
+  grid-column: 1 / -1;
 }
 
 .button {
@@ -419,7 +424,11 @@ button {
   }
 
   .home-actions {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+
+  .home-actions .button--primary {
+    grid-column: auto;
   }
 
   .button {

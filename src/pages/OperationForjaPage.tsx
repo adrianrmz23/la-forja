@@ -38,6 +38,8 @@ import { useProfileStore } from "../stores/profileStore.ts";
 import type {
   MealType,
   MealVisionResult,
+  OperationCardio,
+  OperationCardioOption,
   OperationDailyLog,
   OperationExercise,
   OperationTab,
@@ -95,6 +97,21 @@ function equipmentLabel(value: string) {
   }
 }
 
+function getCardioOptions(cardio: OperationCardio): OperationCardioOption[] {
+  return cardio.options?.length ? cardio.options : [cardio];
+}
+
+function cardioPlanLabel(cardio?: OperationCardio) {
+  if (!cardio) return "Sin cardio";
+  if (!cardio.options?.length) return cardio.name;
+
+  const run = cardio.options.find((option) => option.distanceKm);
+  const rope = cardio.options.find((option) => option.id.includes("rope"));
+  if (run && rope) return `${run.distanceKm} km o ${rope.durationMinutes} min cuerda`;
+
+  return cardio.name;
+}
+
 function createMealId() {
   if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function") {
     return globalThis.crypto.randomUUID();
@@ -111,6 +128,7 @@ function OperationForjaPage() {
   const meals = useOperationForjaStore((state) => state.meals);
   const setSteps = useOperationForjaStore((state) => state.setSteps);
   const toggleTask = useOperationForjaStore((state) => state.toggleTask);
+  const selectCardioTask = useOperationForjaStore((state) => state.selectCardioTask);
   const toggleHabit = useOperationForjaStore((state) => state.toggleHabit);
   const markDayComplete = useOperationForjaStore((state) => state.markDayComplete);
   const setSuitFit = useOperationForjaStore((state) => state.setSuitFit);
@@ -136,9 +154,16 @@ function OperationForjaPage() {
   };
   const todayMeals = meals.filter((meal) => meal.date === todayKey);
 
-  const totalTasks = plan.exercises.length + (plan.cardio ? 1 : 0);
+  const cardio = plan.cardio;
+  const cardioOptions = cardio ? getCardioOptions(cardio) : [];
+  const cardioTaskIds = cardioOptions.map((option) => `cardio:${option.id}`);
+  const selectedCardio = cardioOptions.find((option) =>
+    todayLog.completedTaskIds.includes(`cardio:${option.id}`),
+  );
+  const cardioDone = Boolean(selectedCardio);
+  const totalTasks = plan.exercises.length + (cardio ? 1 : 0);
   const completedTasks = [
-    ...(plan.cardio && todayLog.completedTaskIds.includes(`cardio:${plan.cardio.id}`) ? [plan.cardio.id] : []),
+    ...(cardioDone ? [selectedCardio?.id ?? "cardio"] : []),
     ...plan.exercises.filter((exercise) => todayLog.completedTaskIds.includes(`exercise:${exercise.id}`)).map((exercise) => exercise.id),
   ].length;
   const habitPercent = Math.round((todayLog.completedHabitIds.length / Math.max(1, plan.habits.length)) * 100);
@@ -163,6 +188,29 @@ function OperationForjaPage() {
   const weekHabitsDone = weekLogs.reduce((sum, log) => sum + log.completedHabitIds.length, 0);
   const weekHabitsPossible = weekLogs.reduce((sum, log) => sum + getOperationDayPlan(log.date).habits.length, 0);
   const weekHabitPercent = weekHabitsPossible ? Math.round((weekHabitsDone / weekHabitsPossible) * 100) : 0;
+  const weekCardio = week.reduce(
+    (summary, day) => {
+      if (!day.cardio) return summary;
+      const log = logs[day.date];
+      if (!log) return summary;
+
+      const selected = getCardioOptions(day.cardio).find((option) =>
+        log.completedTaskIds.includes(`cardio:${option.id}`),
+      );
+      if (!selected) return summary;
+
+      if (selected.distanceKm) {
+        summary.runSessions += 1;
+        summary.runKm += selected.distanceKm;
+      } else if (selected.id.includes("rope")) {
+        summary.ropeSessions += 1;
+        summary.ropeMinutes += selected.durationMinutes;
+      }
+
+      return summary;
+    },
+    { runSessions: 0, runKm: 0, ropeSessions: 0, ropeMinutes: 0 },
+  );
   const insights = buildOperationInsights({ logs, meals });
 
   const monthDays = getOperationMonth(
@@ -274,14 +322,54 @@ function OperationForjaPage() {
                   <div className="operation-day-score"><strong>{dayPercent}%</strong><span>del día</span></div>
                 </div>
 
-                {plan.cardio && (
+                {cardio && (
                   <div className="operation-work-section">
                     <div className="operation-work-section__title"><HeartPulse size={18} /><span>CARDIO</span></div>
-                    <button className={todayLog.completedTaskIds.includes(`cardio:${plan.cardio.id}`) ? "operation-task operation-task--done" : "operation-task"} onClick={() => toggleTask(todayKey, `cardio:${plan.cardio?.id}`)} type="button">
-                      <span className="operation-check">{todayLog.completedTaskIds.includes(`cardio:${plan.cardio.id}`) ? <Check size={17} /> : <Circle size={17} />}</span>
-                      <div><strong>{plan.cardio.name}</strong><small>{plan.cardio.description}</small></div>
-                      <em>~{plan.cardio.durationMinutes} min</em>
-                    </button>
+                    {cardio.options?.length ? (
+                      <div className="operation-cardio-choice">
+                        <div className="operation-cardio-choice__heading">
+                          <div>
+                            <strong>Elige 1 opción</strong>
+                            <small>Con completar una, el cardio del día queda cumplido.</small>
+                          </div>
+                          <span className={cardioDone ? "operation-cardio-status operation-cardio-status--done" : "operation-cardio-status"}>
+                            {cardioDone ? "Completado" : "1 de 2"}
+                          </span>
+                        </div>
+                        <div className="operation-cardio-options">
+                          {cardioOptions.map((option, index) => {
+                            const taskId = `cardio:${option.id}`;
+                            const done = todayLog.completedTaskIds.includes(taskId);
+                            return (
+                              <button
+                                className={done ? "operation-cardio-option operation-cardio-option--done" : "operation-cardio-option"}
+                                key={option.id}
+                                onClick={() => selectCardioTask(todayKey, cardioTaskIds, taskId)}
+                                type="button"
+                              >
+                                <div className="operation-cardio-option__top">
+                                  <span>OPCIÓN {index === 0 ? "A" : "B"}</span>
+                                  <span className="operation-cardio-option__check">{done ? <Check size={17} /> : <Circle size={17} />}</span>
+                                </div>
+                                <strong>{option.name}</strong>
+                                <small>{option.description}</small>
+                                <div className="operation-cardio-option__meta">
+                                  <span>{option.distanceKm ? `${option.distanceKm} km` : `${option.durationMinutes} min activos`}</span>
+                                  <em>~{option.durationMinutes} min</em>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="operation-cardio-note">¿Vas corto de tiempo? La cuerda puede hacerse en bloques durante la sesión; no necesitas completar también los 5 km.</p>
+                      </div>
+                    ) : (
+                      <button className={cardioDone ? "operation-task operation-task--done" : "operation-task"} onClick={() => toggleTask(todayKey, `cardio:${cardio.id}`)} type="button">
+                        <span className="operation-check">{cardioDone ? <Check size={17} /> : <Circle size={17} />}</span>
+                        <div><strong>{cardio.name}</strong><small>{cardio.description}</small></div>
+                        <em>~{cardio.durationMinutes} min</em>
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -345,6 +433,7 @@ function OperationForjaPage() {
                 <div className="operation-side-heading"><span>ESTA SEMANA</span><strong>{weekCompleted}/7 días</strong></div>
                 <div className="operation-stat-line"><Footprints size={16} /><span>Pasos registrados</span><strong>{weekSteps.toLocaleString("es-MX")}</strong></div>
                 <div className="operation-stat-line"><Salad size={16} /><span>Hábitos</span><strong>{weekHabitPercent}%</strong></div>
+                <div className="operation-stat-line"><HeartPulse size={16} /><span>Cardio elegido</span><strong>{weekCardio.runKm} km · {weekCardio.ropeMinutes} min cuerda</strong></div>
                 <div className="operation-stat-line"><Utensils size={16} /><span>Comidas con foto</span><strong>{meals.filter((meal) => weekKeys.includes(meal.date)).length}</strong></div>
               </article>
             </aside>
@@ -421,6 +510,8 @@ function OperationForjaPage() {
                 <div><span>Pasos</span><strong>{weekSteps.toLocaleString("es-MX")}</strong><small>registrados</small></div>
                 <div><span>Hábitos</span><strong>{weekHabitPercent}%</strong><small>cumplimiento</small></div>
                 <div><span>Comidas</span><strong>{meals.filter((meal) => weekKeys.includes(meal.date)).length}</strong><small>estimadas</small></div>
+                <div><span>Carrera</span><strong>{weekCardio.runKm} km</strong><small>{weekCardio.runSessions} sesiones</small></div>
+                <div><span>Cuerda</span><strong>{weekCardio.ropeMinutes} min</strong><small>{weekCardio.ropeSessions} sesiones</small></div>
               </div>
 
               <div className="operation-suit-fit">
@@ -466,7 +557,7 @@ function OperationForjaPage() {
           <section className="operation-panel">
             <div className="operation-panel__heading"><div><span>SEMANA FIJA</span><h2>Siempre sabes qué toca</h2></div><Dumbbell size={24} /></div>
             <p className="operation-panel__intro">La estructura se mantiene durante el año. Cada ciclo de cuatro semanas ajusta volumen y después descarga; cada varias semanas entran variantes con mancuernas y ligas.</p>
-            <div className="operation-week-plan">{week.map((day) => <article className={day.date === todayKey ? "operation-week-day operation-week-day--today" : "operation-week-day"} key={day.date}><div><span>{new Intl.DateTimeFormat("es-MX", { weekday: "short" }).format(new Date(`${day.date}T12:00:00`))}</span><strong>{day.title}</strong><small>{day.cardio?.name ?? "Sin cardio"}</small></div><em>{day.exercises.length} ejercicios</em></article>)}</div>
+            <div className="operation-week-plan">{week.map((day) => <article className={day.date === todayKey ? "operation-week-day operation-week-day--today" : "operation-week-day"} key={day.date}><div><span>{new Intl.DateTimeFormat("es-MX", { weekday: "short" }).format(new Date(`${day.date}T12:00:00`))}</span><strong>{day.title}</strong><small>{cardioPlanLabel(day.cardio)}</small></div><em>{day.exercises.length} ejercicios</em></article>)}</div>
             <div className="operation-cycle-explainer"><div><strong>Semana 1</strong><span>Base</span></div><div><strong>Semana 2</strong><span>Más volumen</span></div><div><strong>Semana 3</strong><span>Semana fuerte</span></div><div><strong>Semana 4</strong><span>Descarga</span></div></div>
           </section>
         )}

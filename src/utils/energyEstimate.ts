@@ -30,12 +30,21 @@ export function estimateOperationEnergy({
   let workoutCalories = 0;
   const completed = new Set(log?.completedTaskIds ?? []);
 
-  if (plan.cardio && completed.has(`cardio:${plan.cardio.id}`)) {
-    workoutCalories += metCalories(
-      plan.cardio.met,
-      safeWeight,
-      plan.cardio.durationMinutes,
+  if (plan.cardio) {
+    const cardioOptions = plan.cardio.options?.length
+      ? plan.cardio.options
+      : [plan.cardio];
+    const completedCardio = cardioOptions.find((option) =>
+      completed.has(`cardio:${option.id}`),
     );
+
+    if (completedCardio) {
+      workoutCalories += metCalories(
+        completedCardio.met,
+        safeWeight,
+        completedCardio.durationMinutes,
+      );
+    }
   }
 
   for (const exercise of plan.exercises) {

@@ -1647,6 +1647,10 @@ function BattlePage() {
     const isFirstCompletion = completeMission({
       missionId: resolvedLevelId,
       validRepetitions: validRepetitionsRef.current,
+      invalidMovements: invalidRepetitions,
+      activeSeconds,
+      estimatedCalories,
+      bestCombo,
       experienceReward,
       coinReward,
       unlockMissionId: resolvedLevelId,

@@ -11,6 +11,7 @@ interface OperationForjaState {
   meals: MealEntry[];
   setSteps: (date: string, steps: number) => void;
   toggleTask: (date: string, taskId: string) => void;
+  selectCardioTask: (date: string, cardioTaskIds: string[], taskId: string) => void;
   toggleHabit: (date: string, habitId: string) => void;
   setSuitFit: (date: string, value: SuitFitRating) => void;
   setNotes: (date: string, notes: string) => void;
@@ -60,6 +61,28 @@ export const useOperationForjaStore = create<OperationForjaState>()(
               [date]: {
                 ...log,
                 completedTaskIds: toggleItem(log.completedTaskIds, taskId),
+              },
+            },
+          };
+        });
+      },
+
+      selectCardioTask: (date, cardioTaskIds, taskId) => {
+        set((state) => {
+          const log = state.logs[date] ?? createLog(date);
+          const wasSelected = log.completedTaskIds.includes(taskId);
+          const withoutCardioChoices = log.completedTaskIds.filter(
+            (item) => !cardioTaskIds.includes(item),
+          );
+
+          return {
+            logs: {
+              ...state.logs,
+              [date]: {
+                ...log,
+                completedTaskIds: wasSelected
+                  ? withoutCardioChoices
+                  : [...withoutCardioChoices, taskId],
               },
             },
           };

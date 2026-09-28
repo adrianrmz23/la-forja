@@ -18,13 +18,17 @@ export interface OperationExercise {
   instructions?: string;
 }
 
-export interface OperationCardio {
+export interface OperationCardioOption {
   id: string;
   name: string;
   description: string;
   durationMinutes: number;
   met: number;
   distanceKm?: number;
+}
+
+export interface OperationCardio extends OperationCardioOption {
+  options?: OperationCardioOption[];
 }
 
 export interface OperationHabit {

@@ -1,9 +1,25 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+export interface MissionHistoryEntry {
+  id: string;
+  missionId: string;
+  completedAt: string;
+  validRepetitions: number;
+  invalidMovements: number;
+  activeSeconds: number;
+  estimatedCalories: number;
+  bestCombo: number;
+  firstCompletion: boolean;
+}
+
 interface MissionResult {
   missionId: string;
   validRepetitions: number;
+  invalidMovements?: number;
+  activeSeconds?: number;
+  estimatedCalories?: number;
+  bestCombo?: number;
   experienceReward: number;
   coinReward: number;
   unlockMissionId?: string;
@@ -19,6 +35,7 @@ interface PlayerState {
 
   completedMissionIds: string[];
   unlockedMissionIds: string[];
+  missionHistory: MissionHistoryEntry[];
 
   lastWorkoutDate: string | null;
 
@@ -36,6 +53,7 @@ const initialPlayerState = {
 
   completedMissionIds: [] as string[],
   unlockedMissionIds: ["awakening"],
+  missionHistory: [] as MissionHistoryEntry[],
 
   lastWorkoutDate: null as string | null,
 };
@@ -73,6 +91,14 @@ function calculateNextStreak(
   return 1;
 }
 
+function createHistoryId(missionId: string): string {
+  const suffix =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${new Date().getTime()}-${Math.random().toString(36).slice(2, 8)}`;
+  return `mission-${missionId}-${suffix}`;
+}
+
 export const usePlayerStore = create<PlayerState>()(
   persist(
     (set, get) => ({
@@ -81,6 +107,10 @@ export const usePlayerStore = create<PlayerState>()(
       completeMission: ({
         missionId,
         validRepetitions,
+        invalidMovements = 0,
+        activeSeconds = 0,
+        estimatedCalories = 0,
+        bestCombo = 0,
         experienceReward,
         coinReward,
         unlockMissionId,
@@ -103,6 +133,18 @@ export const usePlayerStore = create<PlayerState>()(
           const unlockedMissionIds = shouldUnlockMission
             ? [...state.unlockedMissionIds, unlockMissionId]
             : state.unlockedMissionIds;
+
+          const historyEntry: MissionHistoryEntry = {
+            id: createHistoryId(missionId),
+            missionId,
+            completedAt: new Date().toISOString(),
+            validRepetitions,
+            invalidMovements,
+            activeSeconds,
+            estimatedCalories,
+            bestCombo,
+            firstCompletion: isFirstCompletion,
+          };
 
           return {
             experience:
@@ -131,6 +173,7 @@ export const usePlayerStore = create<PlayerState>()(
 
             completedMissionIds,
             unlockedMissionIds,
+            missionHistory: [historyEntry, ...state.missionHistory],
           };
         });
 
@@ -143,7 +186,16 @@ export const usePlayerStore = create<PlayerState>()(
     }),
     {
       name: "la-forja-player",
-
+      version: 2,
+      migrate: (persistedState: unknown) => {
+        const previous = (persistedState ?? {}) as Partial<PlayerState>;
+        return {
+          ...previous,
+          missionHistory: Array.isArray(previous.missionHistory)
+            ? previous.missionHistory
+            : [],
+        } as PlayerState;
+      },
       partialize: (state) => ({
         experience: state.experience,
         coins: state.coins,
@@ -153,6 +205,7 @@ export const usePlayerStore = create<PlayerState>()(
         totalRepetitions: state.totalRepetitions,
         completedMissionIds: state.completedMissionIds,
         unlockedMissionIds: state.unlockedMissionIds,
+        missionHistory: state.missionHistory,
         lastWorkoutDate: state.lastWorkoutDate,
       }),
     },

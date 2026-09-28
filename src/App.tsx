@@ -7,6 +7,8 @@ import MissionPage from "./pages/MissionPage";
 import MovementLabPage from "./pages/MovementLabPage";
 import OperationForjaPage from "./pages/OperationForjaPage";
 import ProfilePage from "./pages/ProfilePage";
+import ProgressPage from "./pages/ProgressPage";
+import AccountPage from "./pages/AccountPage";
 import TrainingPage from "./pages/TrainingPage";
 
 function App() {
@@ -19,6 +21,8 @@ function App() {
         <Route path="/training" element={<TrainingPage />} />
         <Route path="/movement-lab" element={<MovementLabPage />} />
         <Route path="/operation-forja" element={<OperationForjaPage />} />
+        <Route path="/progress" element={<ProgressPage />} />
+        <Route path="/account" element={<AccountPage />} />
         <Route path="/mission/:levelId" element={<MissionPage />} />
         <Route path="/battle/:levelId" element={<BattlePage />} />
       </Routes>

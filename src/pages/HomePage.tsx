@@ -1,5 +1,7 @@
 import {
+  BarChart3,
   CalendarDays,
+  Cloud,
   Dumbbell,
   Flame,
   Play,
@@ -76,9 +78,17 @@ function HomePage() {
             <CalendarDays size={20} /> Operación Forja 365
           </Link>
 
+          <Link className="button button--secondary" to="/progress">
+            <BarChart3 size={20} /> Mi progreso
+          </Link>
+
           <Link className="button button--secondary" to="/profile">
             <UserRound size={20} />
             {isProfileComplete ? "Editar perfil" : "Configurar perfil"}
+          </Link>
+
+          <Link className="button button--secondary" to="/account">
+            <Cloud size={20} /> Cuenta y sincronización
           </Link>
         </section>
 

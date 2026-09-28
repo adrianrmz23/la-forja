@@ -1,4 +1,5 @@
 import type {
+  OperationCardio,
   OperationDayPlan,
   OperationExercise,
   OperationHabit,
@@ -255,6 +256,49 @@ function dayDifference(from: string, to: string): number {
   return Math.floor(difference / 86_400_000);
 }
 
+
+function runOrRopeCardio({
+  id,
+  cardioScale,
+  runName = "Correr 5 km suave",
+  runDescription = "Ritmo conversacional. No busques récords.",
+  runMet = 8.3,
+}: {
+  id: string;
+  cardioScale: number;
+  runName?: string;
+  runDescription?: string;
+  runMet?: number;
+}): OperationCardio {
+  const runMinutes = Math.round(38 * cardioScale);
+  const ropeMinutes = Math.max(20, Math.round(25 * cardioScale));
+
+  return {
+    id: `choice-${id}`,
+    name: "Elige tu cardio",
+    description: "Completa una sola opción: 5 km o cuerda. Ambas cuentan como el cardio del día.",
+    durationMinutes: runMinutes,
+    met: runMet,
+    options: [
+      {
+        id,
+        name: runName,
+        description: runDescription,
+        durationMinutes: runMinutes,
+        distanceKm: 5,
+        met: runMet,
+      },
+      {
+        id: `${id}-rope`,
+        name: `Saltar cuerda ${ropeMinutes} min`,
+        description: `Objetivo de ${ropeMinutes} min activos. Puedes hacerlo en 5 bloques; suave: 30–35 min, moderada: ${ropeMinutes} min, intensa: 20–25 min.`,
+        durationMinutes: ropeMinutes,
+        met: 10,
+      },
+    ],
+  };
+}
+
 function cloneExercises(exercises: OperationExercise[], cycleWeek: 1 | 2 | 3 | 4) {
   const repBump = cycleWeek === 2 ? 1 : cycleWeek === 3 ? 2 : 0;
   const setModifier = cycleWeek === 4 ? -1 : 0;
@@ -298,14 +342,10 @@ export function getOperationDayPlan(dateValue = dateKey(new Date())): OperationD
       ...shared,
       title: "Cardio + Torso A",
       subtitle: "Constancia, fuerza y ritmo controlado.",
-      cardio: {
+      cardio: runOrRopeCardio({
         id: "run-5k",
-        name: "Correr 5 km suave",
-        description: "Ritmo conversacional. No busques récords.",
-        durationMinutes: Math.round(38 * cardioScale),
-        distanceKm: 5,
-        met: 8.3,
-      },
+        cardioScale,
+      }),
       exercises: cloneExercises(torsoA, cycleWeek),
       stepsGoal: baseSteps,
       recoveryDay: false,
@@ -353,14 +393,11 @@ export function getOperationDayPlan(dateValue = dateKey(new Date())): OperationD
       ...shared,
       title: "Cardio + Torso B",
       subtitle: "Segundo estímulo de torso con variantes y ligas.",
-      cardio: {
+      cardio: runOrRopeCardio({
         id: "run-5k-2",
-        name: "Correr 5 km suave",
-        description: "Mantén la mayoría del recorrido en intensidad moderada.",
-        durationMinutes: Math.round(38 * cardioScale),
-        distanceKm: 5,
-        met: 8.3,
-      },
+        cardioScale,
+        runDescription: "Mantén la mayoría del recorrido en intensidad moderada.",
+      }),
       exercises: cloneExercises(torsoB, cycleWeek),
       stepsGoal: baseSteps,
       recoveryDay: false,
@@ -390,14 +427,13 @@ export function getOperationDayPlan(dateValue = dateKey(new Date())): OperationD
       ...shared,
       title: "Cardio + Full Body",
       subtitle: "Cierra la semana trabajando todo el cuerpo.",
-      cardio: {
+      cardio: runOrRopeCardio({
         id: "run-5k-3",
-        name: isSuit ? "Correr 5 km moderado" : "Cardio continuo 35-40 min",
-        description: "Ritmo sostenible. La prioridad es terminar con buena sensación.",
-        durationMinutes: Math.round(38 * cardioScale),
-        distanceKm: isSuit ? 5 : undefined,
-        met: 7.8,
-      },
+        cardioScale,
+        runName: "Correr 5 km moderado",
+        runDescription: "Ritmo sostenible. La prioridad es terminar con buena sensación.",
+        runMet: 7.8,
+      }),
       exercises: cloneExercises(fullBody, cycleWeek),
       stepsGoal: baseSteps,
       recoveryDay: false,

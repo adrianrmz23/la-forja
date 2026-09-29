@@ -69,17 +69,20 @@ async function loadNutrition5k() {
 
     if (nameIndex < 0 || caloriesIndex < 0) return [];
 
-    const entries = lines.slice(1).map((line) => {
-      const cells = csvLine(line);
-      return {
-        name: cells[nameIndex] || "",
-        normalized: normalize(cells[nameIndex]),
-        caloriesPerGram: Number(cells[caloriesIndex]) || 0,
-        fatPerGram: fatIndex >= 0 ? Number(cells[fatIndex]) || 0 : 0,
-        carbPerGram: carbIndex >= 0 ? Number(cells[carbIndex]) || 0 : 0,
-        proteinPerGram: proteinIndex >= 0 ? Number(cells[proteinIndex]) || 0 : 0,
-      };
-    }).filter((entry) => entry.name && entry.caloriesPerGram >= 0);
+    const entries = lines
+      .slice(1)
+      .map((line) => {
+        const cells = csvLine(line);
+        return {
+          name: cells[nameIndex] || "",
+          normalized: normalize(cells[nameIndex]),
+          caloriesPerGram: Number(cells[caloriesIndex]) || 0,
+          fatPerGram: fatIndex >= 0 ? Number(cells[fatIndex]) || 0 : 0,
+          carbPerGram: carbIndex >= 0 ? Number(cells[carbIndex]) || 0 : 0,
+          proteinPerGram: proteinIndex >= 0 ? Number(cells[proteinIndex]) || 0 : 0,
+        };
+      })
+      .filter((entry) => entry.name && entry.caloriesPerGram >= 0);
 
     nutritionCache = entries;
     nutritionCacheAt = now;
@@ -131,11 +134,28 @@ function extractJson(content) {
     const first = content.indexOf("{");
     const last = content.lastIndexOf("}");
     if (first >= 0 && last > first) return JSON.parse(content.slice(first, last + 1));
-    throw new Error("La respuesta visual no llegó en JSON válido.");
+    throw new Error("La respuesta de IA no llegó en JSON válido.");
   }
 }
 
-async function callVision({ baseUrl, apiKey, model, imageDataUrl, mealType, useJsonMode }) {
+async function callModel({ baseUrl, apiKey, model, imageDataUrl, description, mealType, useJsonMode }) {
+  const isText = typeof description === "string" && description.trim();
+  const sharedInstruction =
+    'Devuelve únicamente JSON con esta forma: {mealName:string, items:[{name:string,datasetQuery:string,estimatedGrams:number,caloriesPer100g:number,proteinPer100g:number,carbsPer100g:number,fatPer100g:number,confidence:"low"|"medium"|"high"}], notes:string[]}. Los nombres datasetQuery deben estar en inglés simple para compararlos con Nutrition5k/USDA.';
+
+  const userContent = isText
+    ? `Tipo de comida: ${mealType}. La persona escribió: "${description.trim()}". Interpreta esa descripción tal cual, separa los alimentos y estima porciones razonables. Si faltan cantidades, usa una porción típica y baja la confianza; no inventes alimentos que no estén mencionados. ${sharedInstruction}`
+    : [
+        {
+          type: "text",
+          text: `Tipo de comida: ${mealType}. Analiza la imagen y estima alimentos y porciones. Incluye aceites/salsas solo cuando sean visualmente probables y márcalos con confianza baja. No finjas precisión: una foto no revela aceite, receta ni peso exacto. ${sharedInstruction}`,
+        },
+        {
+          type: "image_url",
+          image_url: { url: imageDataUrl },
+        },
+      ];
+
   const body = {
     model,
     temperature: 0.1,
@@ -144,21 +164,9 @@ async function callVision({ baseUrl, apiKey, model, imageDataUrl, mealType, useJ
       {
         role: "system",
         content:
-          "Eres el analizador visual de NutriVision dentro de una app fitness. Estima alimentos y porciones de una sola foto. No finjas precisión: la foto no revela aceite, recetas ni peso exacto. Devuelve únicamente JSON. Los nombres datasetQuery deben estar en inglés simple para poder compararlos contra Nutrition5k/USDA.",
+          "Eres NutriVision, un analizador nutricional dentro de una app fitness. Entiendes descripciones en español y fotografías de comida. Estima de forma conservadora y expresa incertidumbre cuando falten cantidades, receta o peso exacto.",
       },
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: `Tipo de comida: ${mealType}. Analiza la imagen y devuelve: {mealName:string, items:[{name:string,datasetQuery:string,estimatedGrams:number,caloriesPer100g:number,proteinPer100g:number,carbsPer100g:number,fatPer100g:number,confidence:"low"|"medium"|"high"}], notes:string[]}. Incluye aceites/salsas solo cuando sean visualmente probables y márcalos con confianza baja. Usa cantidades razonables, no valores extremos.`,
-          },
-          {
-            type: "image_url",
-            image_url: { url: imageDataUrl },
-          },
-        ],
-      },
+      { role: "user", content: userContent },
     ],
   };
 
@@ -190,53 +198,69 @@ export default async function handler(request, response) {
 
   const apiKey = process.env.CHEAPER_INFERENCE_API_KEY;
   const baseUrl = process.env.CHEAPER_INFERENCE_BASE_URL || "https://api.cheaperinference.com/v1";
-  const model =
-    process.env.CHEAPER_INFERENCE_VISION_MODEL ||
-    process.env.CHEAPER_INFERENCE_MODEL ||
-    "gpt-5.6-luna";
   const imageDataUrl = request.body?.imageDataUrl;
+  const description = typeof request.body?.description === "string" ? request.body.description.trim() : "";
   const mealType = request.body?.mealType || "meal";
+  const requestedMode = request.body?.mode;
+  const isText = requestedMode === "text" || (!imageDataUrl && Boolean(description));
+  const model = isText
+    ? process.env.CHEAPER_INFERENCE_MODEL || "gpt-5.6-luna"
+    : process.env.CHEAPER_INFERENCE_VISION_MODEL || process.env.CHEAPER_INFERENCE_MODEL || "gpt-5.6-luna";
 
   if (!apiKey) {
     return response.status(500).json({ error: "Falta CHEAPER_INFERENCE_API_KEY en Vercel." });
   }
 
-  if (typeof imageDataUrl !== "string" || !imageDataUrl.startsWith("data:image/")) {
-    return response.status(400).json({ error: "La imagen no es válida." });
-  }
-
-  if (imageDataUrl.length > 4_200_000) {
-    return response.status(413).json({ error: "La foto es demasiado grande. Usa una imagen más pequeña." });
+  if (isText) {
+    if (description.length < 3) {
+      return response.status(400).json({ error: "Describe lo que consumiste con un poco más de detalle." });
+    }
+    if (description.length > 2200) {
+      return response.status(413).json({ error: "La descripción es demasiado larga. Resúmela a menos de 2200 caracteres." });
+    }
+  } else {
+    if (typeof imageDataUrl !== "string" || !imageDataUrl.startsWith("data:image/")) {
+      return response.status(400).json({ error: "La imagen no es válida." });
+    }
+    if (imageDataUrl.length > 4_200_000) {
+      return response.status(413).json({ error: "La foto es demasiado grande. Usa una imagen más pequeña." });
+    }
   }
 
   try {
-    let vision;
+    let analysis;
     try {
-      vision = await callVision({
+      analysis = await callModel({
         baseUrl,
         apiKey,
         model,
         imageDataUrl,
+        description,
         mealType,
         useJsonMode: true,
       });
     } catch {
-      // Algunos proveedores/modelos vision no aceptan response_format.
-      vision = await callVision({
+      // Algunos modelos/proveedores no aceptan response_format.
+      analysis = await callModel({
         baseUrl,
         apiKey,
         model,
         imageDataUrl,
+        description,
         mealType,
         useJsonMode: false,
       });
     }
 
     const dataset = await loadNutrition5k();
-    const rawItems = Array.isArray(vision?.items) ? vision.items.slice(0, 12) : [];
+    const rawItems = Array.isArray(analysis?.items) ? analysis.items.slice(0, 12) : [];
 
     if (!rawItems.length) {
-      return response.status(422).json({ error: "No pude identificar alimentos con suficiente claridad." });
+      return response.status(422).json({
+        error: isText
+          ? "No pude separar alimentos de esa descripción. Prueba indicando cantidades o porciones."
+          : "No pude identificar alimentos con suficiente claridad.",
+      });
     }
 
     let datasetMatchedItems = 0;
@@ -249,7 +273,7 @@ export default async function handler(request, response) {
       let protein;
       let carbs;
       let fat;
-      let nutritionSource = "vision-estimate";
+      let nutritionSource = isText ? "text-estimate" : "vision-estimate";
 
       if (match) {
         datasetMatchedItems += 1;
@@ -286,11 +310,14 @@ export default async function handler(request, response) {
     const totalFat = items.reduce((sum, item) => sum + item.fat, 0);
 
     const lowConfidence = items.some((item) => item.confidence === "low");
-    const uncertainty = lowConfidence ? 0.28 : 0.2;
+    const uncertainty = lowConfidence ? 0.28 : isText ? 0.23 : 0.2;
+    const sourceFallback = isText
+      ? "Sin coincidencia Nutrition5k suficiente; se usó la estimación del modelo a partir de tu descripción."
+      : "Sin coincidencia Nutrition5k suficiente; se usó la estimación visual del modelo.";
 
     response.setHeader("Cache-Control", "no-store");
     return response.status(200).json({
-      mealName: String(vision?.mealName || "Comida analizada"),
+      mealName: String(analysis?.mealName || "Comida analizada"),
       items,
       totalCalories: Math.round(totalCalories),
       calorieRangeLow: Math.max(0, Math.round(totalCalories * (1 - uncertainty))),
@@ -300,11 +327,13 @@ export default async function handler(request, response) {
       totalFat: Math.round(totalFat * 10) / 10,
       datasetMatchedItems,
       notes: [
-        ...(Array.isArray(vision?.notes) ? vision.notes.slice(0, 3) : []),
+        ...(Array.isArray(analysis?.notes) ? analysis.notes.slice(0, 3) : []),
         datasetMatchedItems
           ? `${datasetMatchedItems} alimento(s) calibrados con metadatos Nutrition5k/USDA.`
-          : "Sin coincidencia Nutrition5k suficiente; se usó la estimación visual del modelo.",
-        "La porción y los ingredientes ocultos pueden mover mucho el resultado; usa el rango, no una cifra exacta.",
+          : sourceFallback,
+        isText
+          ? "Si no indicaste cantidad, la IA usó una porción típica. Puedes ajustar la porción antes de tomar el dato como referencia."
+          : "La porción y los ingredientes ocultos pueden mover mucho el resultado; usa el rango, no una cifra exacta.",
       ],
     });
   } catch (error) {

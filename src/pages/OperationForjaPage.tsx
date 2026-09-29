@@ -16,9 +16,11 @@ import {
   HeartPulse,
   ListChecks,
   LoaderCircle,
+  FileText,
   Salad,
   Sparkles,
   Trash2,
+  Upload,
   Utensils,
 } from "lucide-react";
 import { Link } from "react-router";
@@ -32,10 +34,11 @@ import {
   getOperationWeek,
   SUIT_TARGET_DATE,
 } from "../data/operationForjaPlan.ts";
-import { analyzeMealPhoto } from "../services/mealVisionService.ts";
+import { analyzeMealDescription, analyzeMealPhoto } from "../services/mealVisionService.ts";
 import { useOperationForjaStore } from "../stores/operationForjaStore.ts";
 import { useProfileStore } from "../stores/profileStore.ts";
 import type {
+  MealInputSource,
   MealType,
   MealVisionResult,
   OperationCardio,
@@ -139,12 +142,15 @@ function OperationForjaPage() {
   const [tab, setTab] = useState<OperationTab>("today");
   const [guideExercise, setGuideExercise] = useState<OperationExercise | null>(null);
   const [mealType, setMealType] = useState<MealType>("lunch");
+  const [mealDescription, setMealDescription] = useState("");
+  const [mealInputSource, setMealInputSource] = useState<MealInputSource | null>(null);
   const [mealPreview, setMealPreview] = useState<string | null>(null);
   const [mealAnalysis, setMealAnalysis] = useState<MealVisionResult | null>(null);
   const [mealStatus, setMealStatus] = useState<"idle" | "processing" | "ready" | "error">("idle");
   const [mealError, setMealError] = useState<string | null>(null);
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const todayLog: OperationDailyLog = logs[todayKey] ?? {
     date: todayKey,
@@ -220,11 +226,12 @@ function OperationForjaPage() {
   const firstWeekday = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1).getDay();
   const calendarPadding = firstWeekday === 0 ? 6 : firstWeekday - 1;
 
-  async function handleMealFile(file?: File) {
+  async function handleMealFile(file: File | undefined, source: Extract<MealInputSource, "camera" | "upload">) {
     if (!file) return;
     if (mealPreview) URL.revokeObjectURL(mealPreview);
     setMealPreview(URL.createObjectURL(file));
     setMealAnalysis(null);
+    setMealInputSource(source);
     setMealError(null);
     setMealStatus("processing");
 
@@ -239,6 +246,31 @@ function OperationForjaPage() {
     }
   }
 
+  async function handleMealDescription() {
+    const description = mealDescription.trim();
+    if (description.length < 3) {
+      setMealStatus("error");
+      setMealError("Describe un poco más lo que consumiste. Por ejemplo: 2 huevos, 2 tortillas y café con leche.");
+      return;
+    }
+
+    if (mealPreview) URL.revokeObjectURL(mealPreview);
+    setMealPreview(null);
+    setMealAnalysis(null);
+    setMealInputSource("text");
+    setMealError(null);
+    setMealStatus("processing");
+
+    try {
+      const result = await analyzeMealDescription({ description, mealType });
+      setMealAnalysis(result);
+      setMealStatus("ready");
+    } catch (error) {
+      setMealStatus("error");
+      setMealError(error instanceof Error ? error.message : "No fue posible analizar la descripción.");
+    }
+  }
+
   function saveMeal() {
     if (!mealAnalysis) return;
     const id = createMealId();
@@ -248,6 +280,8 @@ function OperationForjaPage() {
       date: todayKey,
       createdAt: new Date().toISOString(),
       mealType,
+      source: mealInputSource ?? "upload",
+      inputDescription: mealInputSource === "text" ? mealDescription.trim() : undefined,
       name: mealAnalysis.mealName,
       items: mealAnalysis.items,
       calories: mealAnalysis.totalCalories,
@@ -263,9 +297,12 @@ function OperationForjaPage() {
 
     if (mealPreview) URL.revokeObjectURL(mealPreview);
     setMealPreview(null);
+    setMealDescription("");
+    setMealInputSource(null);
     setMealAnalysis(null);
     setMealStatus("idle");
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
+    if (uploadInputRef.current) uploadInputRef.current.value = "";
   }
 
   function moveMonth(direction: number) {
@@ -426,7 +463,7 @@ function OperationForjaPage() {
                   <small>Rango: {energy.balanceLow} a {energy.balanceHigh} kcal</small>
                 </div>
                 <p>No es una medición metabólica. Foto, porciones, pasos y MET tienen error; usa la tendencia.</p>
-                <button className="operation-photo-cta" onClick={() => setTab("habits")} type="button"><Camera size={18} /> Registrar comida con foto</button>
+                <button className="operation-photo-cta" onClick={() => setTab("habits")} type="button"><Utensils size={18} /> Registrar comida</button>
               </article>
 
               <article className="operation-side-card">
@@ -434,7 +471,7 @@ function OperationForjaPage() {
                 <div className="operation-stat-line"><Footprints size={16} /><span>Pasos registrados</span><strong>{weekSteps.toLocaleString("es-MX")}</strong></div>
                 <div className="operation-stat-line"><Salad size={16} /><span>Hábitos</span><strong>{weekHabitPercent}%</strong></div>
                 <div className="operation-stat-line"><HeartPulse size={16} /><span>Cardio elegido</span><strong>{weekCardio.runKm} km · {weekCardio.ropeMinutes} min cuerda</strong></div>
-                <div className="operation-stat-line"><Utensils size={16} /><span>Comidas con foto</span><strong>{meals.filter((meal) => weekKeys.includes(meal.date)).length}</strong></div>
+                <div className="operation-stat-line"><Utensils size={16} /><span>Comidas registradas</span><strong>{meals.filter((meal) => weekKeys.includes(meal.date)).length}</strong></div>
               </article>
             </aside>
           </div>
@@ -458,25 +495,45 @@ function OperationForjaPage() {
             </section>
 
             <section className="operation-panel operation-nutri-panel">
-              <div className="operation-panel__heading"><div><span>NUTRIVISION</span><h2>Foto → estimación</h2></div><Camera size={24} /></div>
-              <p className="operation-panel__intro">La visión estima alimentos y porciones; cuando encuentra una coincidencia, calibra nutrientes con metadatos de Nutrition5k/USDA.</p>
+              <div className="operation-panel__heading"><div><span>NUTRIVISION</span><h2>Foto o texto → estimación</h2></div><Utensils size={24} /></div>
+              <p className="operation-panel__intro">Registra lo que comiste como te resulte más práctico: toma una foto, sube una que ya tengas o descríbelo. La IA estima porciones y Nutrition5k/USDA calibra coincidencias cuando es posible.</p>
 
-              <div className="operation-meal-controls">
-                <select value={mealType} onChange={(event) => setMealType(event.target.value as MealType)}>{MEAL_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
-                <input ref={fileInputRef} accept="image/*" capture="environment" onChange={(event) => void handleMealFile(event.target.files?.[0])} type="file" />
-                <button onClick={() => fileInputRef.current?.click()} type="button"><Camera size={18} /> Tomar / elegir foto</button>
+              <div className="operation-meal-type-row">
+                <label htmlFor="operation-meal-type">Tipo de comida</label>
+                <select id="operation-meal-type" value={mealType} onChange={(event) => setMealType(event.target.value as MealType)}>{MEAL_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+              </div>
+
+              <div className="operation-meal-methods">
+                <input ref={cameraInputRef} accept="image/*" capture="environment" onChange={(event) => void handleMealFile(event.target.files?.[0], "camera")} type="file" />
+                <input ref={uploadInputRef} accept="image/*" onChange={(event) => void handleMealFile(event.target.files?.[0], "upload")} type="file" />
+                <button onClick={() => cameraInputRef.current?.click()} type="button"><Camera size={19} /><span><strong>Tomar foto</strong><small>Abrir cámara ahora</small></span></button>
+                <button onClick={() => uploadInputRef.current?.click()} type="button"><Upload size={19} /><span><strong>Subir foto</strong><small>Elegir de tu galería</small></span></button>
+              </div>
+
+              <div className="operation-meal-divider"><span>o descríbelo</span></div>
+
+              <div className="operation-meal-text-entry">
+                <div className="operation-meal-text-entry__heading"><FileText size={18} /><div><strong>¿No tienes foto?</strong><small>Escribe alimentos, cantidades o porciones aproximadas.</small></div></div>
+                <textarea
+                  value={mealDescription}
+                  onChange={(event) => setMealDescription(event.target.value)}
+                  placeholder="Ej. 2 huevos revueltos, 2 tortillas, media taza de frijoles y café con un poco de leche"
+                  rows={4}
+                  maxLength={2200}
+                />
+                <div className="operation-meal-text-entry__footer"><small>{mealDescription.length}/2200</small><button disabled={mealStatus === "processing" || mealDescription.trim().length < 3} onClick={() => void handleMealDescription()} type="button"><Sparkles size={17} /> Analizar descripción</button></div>
               </div>
 
               {mealPreview && <img className="operation-meal-preview" src={mealPreview} alt="Comida a analizar" />}
-              {mealStatus === "processing" && <div className="operation-analysis-state"><LoaderCircle className="operation-spin" /> Analizando alimentos y buscando referencias…</div>}
+              {mealStatus === "processing" && <div className="operation-analysis-state"><LoaderCircle className="operation-spin" /> {mealInputSource === "text" ? "Interpretando tu descripción y calculando porciones…" : "Analizando alimentos y buscando referencias…"}</div>}
               {mealStatus === "error" && <div className="operation-analysis-state operation-analysis-state--error">{mealError}</div>}
 
               {mealAnalysis && (
                 <div className="operation-analysis-result">
-                  <div className="operation-analysis-result__summary"><div><span>{mealAnalysis.mealName}</span><strong>~{mealAnalysis.totalCalories} kcal</strong></div><small>{mealAnalysis.calorieRangeLow}–{mealAnalysis.calorieRangeHigh} kcal</small></div>
+                  <div className="operation-analysis-source">{mealInputSource === "text" ? "Descripción" : mealInputSource === "camera" ? "Cámara" : "Galería"}</div><div className="operation-analysis-result__summary"><div><span>{mealAnalysis.mealName}</span><strong>~{mealAnalysis.totalCalories} kcal</strong></div><small>{mealAnalysis.calorieRangeLow}–{mealAnalysis.calorieRangeHigh} kcal</small></div>
                   <div className="operation-food-items">
                     {mealAnalysis.items.map((item) => (
-                      <div key={item.id}><div><strong>{item.name}</strong><small>~{item.estimatedGrams} g · {item.nutritionSource === "nutrition5k" ? "Nutrition5k" : "visión"}</small></div><span>~{item.calories} kcal</span></div>
+                      <div key={item.id}><div><strong>{item.name}</strong><small>~{item.estimatedGrams} g · {item.nutritionSource === "nutrition5k" ? "Nutrition5k" : item.nutritionSource === "text-estimate" ? "estimación por texto" : "visión"}</small></div><span>~{item.calories} kcal</span></div>
                     ))}
                   </div>
                   <div className="operation-macros"><span>P {mealAnalysis.totalProtein}g</span><span>C {mealAnalysis.totalCarbs}g</span><span>G {mealAnalysis.totalFat}g</span></div>
@@ -487,9 +544,9 @@ function OperationForjaPage() {
 
               <div className="operation-meal-history">
                 <div className="operation-meal-history__heading"><span>HOY</span><strong>{todayMeals.length} registros</strong></div>
-                {todayMeals.length === 0 ? <p>Aún no has registrado comidas. No es obligatorio fotografiar todo.</p> : todayMeals.map((meal) => (
+                {todayMeals.length === 0 ? <p>Aún no has registrado comidas. Puedes usar foto o simplemente describir lo que comiste.</p> : todayMeals.map((meal) => (
                   <article key={meal.id}>
-                    <div><span>{mealTypeLabel(meal.mealType)}</span><strong>{meal.name}</strong><small>~{Math.round(meal.calories * meal.portionMultiplier)} kcal · rango {Math.round(meal.calorieRangeLow * meal.portionMultiplier)}–{Math.round(meal.calorieRangeHigh * meal.portionMultiplier)}</small></div>
+                    <div><span>{mealTypeLabel(meal.mealType)} · {meal.source === "text" ? "descripción" : meal.source === "camera" ? "cámara" : meal.source === "upload" ? "galería" : "registro"}</span><strong>{meal.name}</strong><small>~{Math.round(meal.calories * meal.portionMultiplier)} kcal · rango {Math.round(meal.calorieRangeLow * meal.portionMultiplier)}–{Math.round(meal.calorieRangeHigh * meal.portionMultiplier)}</small>{meal.inputDescription && <small className="operation-meal-description">“{meal.inputDescription}”</small>}</div>
                     <div className="operation-meal-actions">
                       <select aria-label={`Ajustar porción ${meal.name}`} value={meal.portionMultiplier} onChange={(event) => setMealPortion(meal.id, Number(event.target.value))}><option value="0.75">Porción menor</option><option value="1">Porción estimada</option><option value="1.25">Porción mayor</option><option value="1.5">Mucho mayor</option></select>
                       <button onClick={() => removeMeal(meal.id)} type="button" aria-label="Eliminar"><Trash2 size={16} /></button>

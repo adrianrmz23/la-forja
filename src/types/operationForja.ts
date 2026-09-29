@@ -80,17 +80,20 @@ export interface MealAnalysisItem {
   carbs: number;
   fat: number;
   confidence: "low" | "medium" | "high";
-  nutritionSource: "nutrition5k" | "vision-estimate";
+  nutritionSource: "nutrition5k" | "vision-estimate" | "text-estimate";
   matchedIngredient?: string;
 }
 
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
+export type MealInputSource = "camera" | "upload" | "text";
 
 export interface MealEntry {
   id: string;
   date: string;
   createdAt: string;
   mealType: MealType;
+  source?: MealInputSource;
+  inputDescription?: string;
   name: string;
   items: MealAnalysisItem[];
   calories: number;

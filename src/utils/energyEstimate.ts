@@ -1,5 +1,6 @@
 import type {
   EnergyEstimate,
+  ExternalActivityEntry,
   MealEntry,
   OperationDailyLog,
   OperationDayPlan,
@@ -14,11 +15,13 @@ export function estimateOperationEnergy({
   log,
   meals,
   weightKg,
+  externalActivities = [],
 }: {
   plan: OperationDayPlan;
   log?: OperationDailyLog;
   meals: MealEntry[];
   weightKg: number;
+  externalActivities?: ExternalActivityEntry[];
 }): EnergyEstimate {
   const safeWeight = Math.max(45, Math.min(180, weightKg || 75));
 
@@ -53,6 +56,11 @@ export function estimateOperationEnergy({
     workoutCalories += metCalories(exercise.met, safeWeight, minutes);
   }
 
+  const externalActivityCalories = externalActivities.reduce(
+    (sum, activity) => sum + Math.max(0, activity.activeCalories || 0),
+    0,
+  );
+
   const intakeCalories = meals.reduce(
     (sum, meal) => sum + meal.calories * meal.portionMultiplier,
     0,
@@ -66,7 +74,7 @@ export function estimateOperationEnergy({
     0,
   );
 
-  const totalBurnCalories = baseCalories + stepsCalories + workoutCalories;
+  const totalBurnCalories = baseCalories + stepsCalories + workoutCalories + externalActivityCalories;
 
   // El gasto también tiene error considerable; usamos ±15% para no fingir precisión.
   const burnLow = totalBurnCalories * 0.85;
@@ -76,6 +84,7 @@ export function estimateOperationEnergy({
     baseCalories: Math.round(baseCalories),
     stepsCalories: Math.round(stepsCalories),
     workoutCalories: Math.round(workoutCalories),
+    externalActivityCalories: Math.round(externalActivityCalories),
     totalBurnCalories: Math.round(totalBurnCalories),
     intakeCalories: Math.round(intakeCalories),
     intakeLow: Math.round(intakeLow),

@@ -120,10 +120,37 @@ export interface MealVisionResult {
   datasetMatchedItems: number;
 }
 
+
+export type ExternalActivityType =
+  | "gym"
+  | "football"
+  | "cycling"
+  | "running"
+  | "walking"
+  | "swimming"
+  | "hiit"
+  | "rope"
+  | "other";
+
+export interface ExternalActivityEntry {
+  id: string;
+  date: string;
+  createdAt: string;
+  type: ExternalActivityType;
+  name: string;
+  durationMinutes: number;
+  activeCalories: number;
+  distanceKm?: number;
+  averageHeartRate?: number;
+  substitutesCardio: boolean;
+  source: "watch_manual";
+}
+
 export interface EnergyEstimate {
   baseCalories: number;
   stepsCalories: number;
   workoutCalories: number;
+  externalActivityCalories: number;
   totalBurnCalories: number;
   intakeCalories: number;
   intakeLow: number;

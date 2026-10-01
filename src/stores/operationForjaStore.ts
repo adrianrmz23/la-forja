@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
+  ExternalActivityEntry,
   MealEntry,
   OperationDailyLog,
   SuitFitRating,
@@ -9,6 +10,7 @@ import type {
 interface OperationForjaState {
   logs: Record<string, OperationDailyLog>;
   meals: MealEntry[];
+  externalActivities: ExternalActivityEntry[];
   setSteps: (date: string, steps: number) => void;
   toggleTask: (date: string, taskId: string) => void;
   selectCardioTask: (date: string, cardioTaskIds: string[], taskId: string) => void;
@@ -19,6 +21,8 @@ interface OperationForjaState {
   addMeal: (meal: MealEntry) => void;
   removeMeal: (mealId: string) => void;
   setMealPortion: (mealId: string, multiplier: number) => void;
+  addExternalActivity: (activity: ExternalActivityEntry) => void;
+  removeExternalActivity: (activityId: string) => void;
 }
 
 function createLog(date: string): OperationDailyLog {
@@ -39,6 +43,7 @@ export const useOperationForjaStore = create<OperationForjaState>()(
     (set) => ({
       logs: {},
       meals: [],
+      externalActivities: [],
 
       setSteps: (date, steps) => {
         set((state) => {
@@ -161,6 +166,18 @@ export const useOperationForjaStore = create<OperationForjaState>()(
           meals: state.meals.map((meal) =>
             meal.id === mealId ? { ...meal, portionMultiplier: safeMultiplier } : meal,
           ),
+        }));
+      },
+
+      addExternalActivity: (activity) => {
+        set((state) => ({
+          externalActivities: [activity, ...state.externalActivities].slice(0, 800),
+        }));
+      },
+
+      removeExternalActivity: (activityId) => {
+        set((state) => ({
+          externalActivities: state.externalActivities.filter((activity) => activity.id !== activityId),
         }));
       },
     }),

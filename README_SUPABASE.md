@@ -76,3 +76,7 @@ La nueva ruta `/progress` concentra:
 - cumplimiento de cardio, fuerza, hábitos y pasos en 28 días;
 - registro manual de peso que se sincroniza automáticamente.
 
+
+## Actividades externas del reloj
+
+Las actividades externas manuales se guardan dentro del mismo dominio `operation` de sincronización. Incluyen duración, calorías activas, distancia opcional, frecuencia cardiaca promedio y si sustituyen el objetivo de cardio del día. No requieren una nueva migración SQL.

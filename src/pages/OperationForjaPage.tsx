@@ -16,12 +16,14 @@ import {
   HeartPulse,
   ListChecks,
   LoaderCircle,
+  Plus,
   FileText,
   Salad,
   Sparkles,
   Trash2,
   Upload,
   Utensils,
+  Watch,
 } from "lucide-react";
 import { Link } from "react-router";
 import "./OperationForjaPage.css";
@@ -38,6 +40,7 @@ import { analyzeMealDescription, analyzeMealPhoto } from "../services/mealVision
 import { useOperationForjaStore } from "../stores/operationForjaStore.ts";
 import { useProfileStore } from "../stores/profileStore.ts";
 import type {
+  ExternalActivityType,
   MealInputSource,
   MealType,
   MealVisionResult,
@@ -73,6 +76,18 @@ const MEAL_TYPES: Array<{ value: MealType; label: string }> = [
   { value: "lunch", label: "Comida" },
   { value: "dinner", label: "Cena" },
   { value: "snack", label: "Snack" },
+];
+
+const EXTERNAL_ACTIVITY_TYPES: Array<{ value: ExternalActivityType; label: string }> = [
+  { value: "gym", label: "Gimnasio" },
+  { value: "football", label: "Fútbol" },
+  { value: "cycling", label: "Bicicleta" },
+  { value: "running", label: "Carrera" },
+  { value: "walking", label: "Caminata" },
+  { value: "swimming", label: "Natación" },
+  { value: "hiit", label: "HIIT / funcional" },
+  { value: "rope", label: "Cuerda" },
+  { value: "other", label: "Otro" },
 ];
 
 function dateLabel(date: string) {
@@ -123,12 +138,25 @@ function createMealId() {
   return `meal-${Date.now()}`;
 }
 
+function externalActivityLabel(type: ExternalActivityType) {
+  return EXTERNAL_ACTIVITY_TYPES.find((item) => item.value === type)?.label ?? "Actividad externa";
+}
+
+function createExternalActivityId() {
+  if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `external-${Date.now()}`;
+}
+
 function OperationForjaPage() {
   const todayKey = formatOperationDate(new Date());
   const plan = getOperationDayPlan(todayKey);
   const profile = useProfileStore((state) => state.profile);
   const logs = useOperationForjaStore((state) => state.logs);
   const meals = useOperationForjaStore((state) => state.meals);
+  const externalActivities = useOperationForjaStore((state) => state.externalActivities);
   const setSteps = useOperationForjaStore((state) => state.setSteps);
   const toggleTask = useOperationForjaStore((state) => state.toggleTask);
   const selectCardioTask = useOperationForjaStore((state) => state.selectCardioTask);
@@ -138,6 +166,8 @@ function OperationForjaPage() {
   const addMeal = useOperationForjaStore((state) => state.addMeal);
   const removeMeal = useOperationForjaStore((state) => state.removeMeal);
   const setMealPortion = useOperationForjaStore((state) => state.setMealPortion);
+  const addExternalActivity = useOperationForjaStore((state) => state.addExternalActivity);
+  const removeExternalActivity = useOperationForjaStore((state) => state.removeExternalActivity);
 
   const [tab, setTab] = useState<OperationTab>("today");
   const [guideExercise, setGuideExercise] = useState<OperationExercise | null>(null);
@@ -149,6 +179,15 @@ function OperationForjaPage() {
   const [mealStatus, setMealStatus] = useState<"idle" | "processing" | "ready" | "error">("idle");
   const [mealError, setMealError] = useState<string | null>(null);
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
+  const [externalFormOpen, setExternalFormOpen] = useState(false);
+  const [externalType, setExternalType] = useState<ExternalActivityType>("gym");
+  const [externalName, setExternalName] = useState("");
+  const [externalDuration, setExternalDuration] = useState("");
+  const [externalCalories, setExternalCalories] = useState("");
+  const [externalDistance, setExternalDistance] = useState("");
+  const [externalHeartRate, setExternalHeartRate] = useState("");
+  const [externalSubstitutesCardio, setExternalSubstitutesCardio] = useState(true);
+  const [externalError, setExternalError] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -159,6 +198,8 @@ function OperationForjaPage() {
     completedHabitIds: [],
   };
   const todayMeals = meals.filter((meal) => meal.date === todayKey);
+  const todayExternalActivities = externalActivities.filter((activity) => activity.date === todayKey);
+  const todayExternalCalories = todayExternalActivities.reduce((sum, activity) => sum + activity.activeCalories, 0);
 
   const cardio = plan.cardio;
   const cardioOptions = cardio ? getCardioOptions(cardio) : [];
@@ -166,7 +207,9 @@ function OperationForjaPage() {
   const selectedCardio = cardioOptions.find((option) =>
     todayLog.completedTaskIds.includes(`cardio:${option.id}`),
   );
-  const cardioDone = Boolean(selectedCardio);
+  const programmedCardioDone = Boolean(selectedCardio);
+  const externalCardioSubstitute = Boolean(cardio) && todayExternalActivities.some((activity) => activity.substitutesCardio);
+  const cardioDone = programmedCardioDone || externalCardioSubstitute;
   const totalTasks = plan.exercises.length + (cardio ? 1 : 0);
   const completedTasks = [
     ...(cardioDone ? [selectedCardio?.id ?? "cardio"] : []),
@@ -182,6 +225,7 @@ function OperationForjaPage() {
     log: todayLog,
     meals: todayMeals,
     weightKg: profile.weightKg,
+    externalActivities: todayExternalActivities,
   });
 
   const week = getOperationWeek(new Date());
@@ -217,6 +261,8 @@ function OperationForjaPage() {
     },
     { runSessions: 0, runKm: 0, ropeSessions: 0, ropeMinutes: 0 },
   );
+  const weekExternalActivities = externalActivities.filter((activity) => weekKeys.includes(activity.date));
+  const weekExternalCalories = weekExternalActivities.reduce((sum, activity) => sum + activity.activeCalories, 0);
   const insights = buildOperationInsights({ logs, meals });
 
   const monthDays = getOperationMonth(
@@ -305,6 +351,59 @@ function OperationForjaPage() {
     if (uploadInputRef.current) uploadInputRef.current.value = "";
   }
 
+  function saveExternalActivity() {
+    const durationMinutes = Number(externalDuration);
+    const activeCalories = Number(externalCalories);
+    const distanceKm = externalDistance.trim() ? Number(externalDistance) : undefined;
+    const averageHeartRate = externalHeartRate.trim() ? Number(externalHeartRate) : undefined;
+
+    if (!Number.isFinite(durationMinutes) || durationMinutes < 1 || durationMinutes > 600) {
+      setExternalError("Ingresa una duración válida entre 1 y 600 minutos.");
+      return;
+    }
+
+    if (!Number.isFinite(activeCalories) || activeCalories < 1 || activeCalories > 5000) {
+      setExternalError("Ingresa las calorías activas que reportó tu reloj, no las calorías totales del día.");
+      return;
+    }
+
+    if (distanceKm !== undefined && (!Number.isFinite(distanceKm) || distanceKm < 0 || distanceKm > 500)) {
+      setExternalError("La distancia no parece válida.");
+      return;
+    }
+
+    if (averageHeartRate !== undefined && (!Number.isFinite(averageHeartRate) || averageHeartRate < 30 || averageHeartRate > 240)) {
+      setExternalError("La frecuencia cardiaca promedio debe estar entre 30 y 240 bpm.");
+      return;
+    }
+
+    const name = externalType === "other" && externalName.trim()
+      ? externalName.trim()
+      : externalActivityLabel(externalType);
+
+    addExternalActivity({
+      id: createExternalActivityId(),
+      date: todayKey,
+      createdAt: new Date().toISOString(),
+      type: externalType,
+      name,
+      durationMinutes: Math.round(durationMinutes),
+      activeCalories: Math.round(activeCalories),
+      distanceKm: distanceKm !== undefined ? Math.round(distanceKm * 100) / 100 : undefined,
+      averageHeartRate: averageHeartRate !== undefined ? Math.round(averageHeartRate) : undefined,
+      substitutesCardio: Boolean(cardio) && externalSubstitutesCardio,
+      source: "watch_manual",
+    });
+
+    setExternalDuration("");
+    setExternalCalories("");
+    setExternalDistance("");
+    setExternalHeartRate("");
+    setExternalName("");
+    setExternalError(null);
+    setExternalFormOpen(false);
+  }
+
   function moveMonth(direction: number) {
     setCalendarCursor((current) => new Date(current.getFullYear(), current.getMonth() + direction, 1));
   }
@@ -370,7 +469,7 @@ function OperationForjaPage() {
                             <small>Con completar una, el cardio del día queda cumplido.</small>
                           </div>
                           <span className={cardioDone ? "operation-cardio-status operation-cardio-status--done" : "operation-cardio-status"}>
-                            {cardioDone ? "Completado" : "1 de 2"}
+                            {cardioDone ? (externalCardioSubstitute && !selectedCardio ? "Cubierto externo" : "Completado") : "1 de 2"}
                           </span>
                         </div>
                         <div className="operation-cardio-options">
@@ -399,13 +498,17 @@ function OperationForjaPage() {
                           })}
                         </div>
                         <p className="operation-cardio-note">¿Vas corto de tiempo? La cuerda puede hacerse en bloques durante la sesión; no necesitas completar también los 5 km.</p>
+                        {externalCardioSubstitute && !programmedCardioDone && <p className="operation-cardio-external-note"><Watch size={14} /> Tu actividad externa ya cubre el objetivo de cardio de hoy.</p>}
                       </div>
                     ) : (
-                      <button className={cardioDone ? "operation-task operation-task--done" : "operation-task"} onClick={() => toggleTask(todayKey, `cardio:${cardio.id}`)} type="button">
-                        <span className="operation-check">{cardioDone ? <Check size={17} /> : <Circle size={17} />}</span>
-                        <div><strong>{cardio.name}</strong><small>{cardio.description}</small></div>
-                        <em>~{cardio.durationMinutes} min</em>
-                      </button>
+                      <>
+                        <button className={programmedCardioDone ? "operation-task operation-task--done" : "operation-task"} onClick={() => toggleTask(todayKey, `cardio:${cardio.id}`)} type="button">
+                          <span className="operation-check">{programmedCardioDone ? <Check size={17} /> : <Circle size={17} />}</span>
+                          <div><strong>{cardio.name}</strong><small>{cardio.description}</small></div>
+                          <em>~{cardio.durationMinutes} min</em>
+                        </button>
+                        {externalCardioSubstitute && !programmedCardioDone && <p className="operation-cardio-external-note"><Watch size={14} /> Cardio cubierto por tu actividad externa registrada.</p>}
+                      </>
                     )}
                   </div>
                 )}
@@ -428,6 +531,42 @@ function OperationForjaPage() {
                     </div>
                   </div>
                 )}
+
+                <div className="operation-work-section operation-external-section">
+                  <div className="operation-work-section__title"><Watch size={18} /><span>ACTIVIDAD EXTERNA</span></div>
+                  <div className="operation-external-card">
+                    <div className="operation-external-card__heading">
+                      <div><strong>¿Entrenaste por tu cuenta?</strong><small>Registra las calorías activas que midió tu reloj. No uses las calorías totales del día.</small></div>
+                      <button onClick={() => { setExternalFormOpen((value) => !value); setExternalError(null); }} type="button"><Plus size={16} /> {externalFormOpen ? "Cerrar" : "Registrar"}</button>
+                    </div>
+
+                    {externalFormOpen && (
+                      <div className="operation-external-form">
+                        <label><span>Tipo de actividad</span><select value={externalType} onChange={(event) => setExternalType(event.target.value as ExternalActivityType)}>{EXTERNAL_ACTIVITY_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+                        {externalType === "other" && <label><span>Nombre</span><input maxLength={80} onChange={(event) => setExternalName(event.target.value)} placeholder="Ej. pádel" type="text" value={externalName} /></label>}
+                        <label><span>Duración</span><div className="operation-external-input"><input inputMode="numeric" min="1" max="600" onChange={(event) => setExternalDuration(event.target.value)} placeholder="45" type="number" value={externalDuration} /><strong>min</strong></div></label>
+                        <label><span>Calorías activas del reloj</span><div className="operation-external-input"><input inputMode="numeric" min="1" max="5000" onChange={(event) => setExternalCalories(event.target.value)} placeholder="420" type="number" value={externalCalories} /><strong>kcal</strong></div></label>
+                        <label><span>Distancia · opcional</span><div className="operation-external-input"><input inputMode="decimal" min="0" max="500" step="0.01" onChange={(event) => setExternalDistance(event.target.value)} placeholder="5.2" type="number" value={externalDistance} /><strong>km</strong></div></label>
+                        <label><span>FC promedio · opcional</span><div className="operation-external-input"><input inputMode="numeric" min="30" max="240" onChange={(event) => setExternalHeartRate(event.target.value)} placeholder="148" type="number" value={externalHeartRate} /><strong>bpm</strong></div></label>
+                        {cardio && <label className="operation-external-checkbox"><input checked={externalSubstitutesCardio} onChange={(event) => setExternalSubstitutesCardio(event.target.checked)} type="checkbox" /><span><strong>Esta actividad cubre mi cardio de hoy</strong><small>La Forja la contará para cumplimiento cardiovascular, pero no fingirá que hiciste los 5 km o la cuerda.</small></span></label>}
+                        {externalError && <p className="operation-external-error">{externalError}</p>}
+                        <button className="operation-external-save" onClick={saveExternalActivity} type="button"><Watch size={17} /> Guardar actividad del reloj</button>
+                      </div>
+                    )}
+
+                    {todayExternalActivities.length > 0 && (
+                      <div className="operation-external-list">
+                        {todayExternalActivities.map((activity) => (
+                          <article key={activity.id}>
+                            <div><span>{activity.substitutesCardio ? "CUBRE CARDIO · " : ""}RELOJ</span><strong>{activity.name}</strong><small>{activity.durationMinutes} min{activity.distanceKm ? ` · ${activity.distanceKm} km` : ""}{activity.averageHeartRate ? ` · ${activity.averageHeartRate} bpm` : ""}</small></div>
+                            <div><strong>{activity.activeCalories} kcal</strong><button aria-label={`Eliminar ${activity.name}`} onClick={() => removeExternalActivity(activity.id)} type="button"><Trash2 size={15} /></button></div>
+                          </article>
+                        ))}
+                        <div className="operation-external-total"><span>Total externo de hoy</span><strong>{todayExternalCalories} kcal activas</strong></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 <div className="operation-work-section">
                   <div className="operation-work-section__title"><Footprints size={18} /><span>PASOS</span></div>
@@ -457,6 +596,7 @@ function OperationForjaPage() {
                   <div><span>Consumido</span><strong>~{energy.intakeCalories}</strong><small>kcal</small></div>
                   <div><span>Gastado</span><strong>~{energy.totalBurnCalories}</strong><small>kcal</small></div>
                 </div>
+                {energy.externalActivityCalories > 0 && <div className="operation-energy-external"><Watch size={15} /><span>Actividad externa</span><strong>+{energy.externalActivityCalories} kcal</strong></div>}
                 <div className={energy.balanceCalories <= 0 ? "operation-balance operation-balance--deficit" : "operation-balance"}>
                   <span>Diferencia orientativa</span>
                   <strong>{energy.balanceCalories > 0 ? "+" : ""}{energy.balanceCalories} kcal</strong>
@@ -569,6 +709,7 @@ function OperationForjaPage() {
                 <div><span>Comidas</span><strong>{meals.filter((meal) => weekKeys.includes(meal.date)).length}</strong><small>estimadas</small></div>
                 <div><span>Carrera</span><strong>{weekCardio.runKm} km</strong><small>{weekCardio.runSessions} sesiones</small></div>
                 <div><span>Cuerda</span><strong>{weekCardio.ropeMinutes} min</strong><small>{weekCardio.ropeSessions} sesiones</small></div>
+                <div><span>Actividad externa</span><strong>{weekExternalCalories} kcal</strong><small>{weekExternalActivities.length} sesiones</small></div>
               </div>
 
               <div className="operation-suit-fit">
@@ -586,7 +727,8 @@ function OperationForjaPage() {
                 <h3>Balance energético de hoy</h3>
                 <div><span>Base estimada</span><strong>~{energy.baseCalories} kcal</strong></div>
                 <div><span>Pasos</span><strong>~{energy.stepsCalories} kcal</strong></div>
-                <div><span>Entrenamiento marcado</span><strong>~{energy.workoutCalories} kcal</strong></div>
+                <div><span>Entrenamiento programado</span><strong>~{energy.workoutCalories} kcal</strong></div>
+                <div><span>Actividad externa</span><strong>{energy.externalActivityCalories} kcal</strong></div>
                 <div><span>Comida registrada</span><strong>~{energy.intakeCalories} kcal</strong></div>
                 <p>La cifra usa datos del perfil internamente, pero Operación Forja no muestra ni registra tu peso como progreso.</p>
               </div>
@@ -602,7 +744,9 @@ function OperationForjaPage() {
               {Array.from({ length: calendarPadding }, (_, index) => <span className="operation-calendar-empty" key={`empty-${index}`} />)}
               {monthDays.map((day) => {
                 const log = logs[day.date];
-                const status = log?.completedAt ? "done" : log && (log.steps > 0 || log.completedTaskIds.length || log.completedHabitIds.length) ? "partial" : "empty";
+                const hasExternalActivity = externalActivities.some((activity) => activity.date === day.date);
+                const hasLocalProgress = Boolean(log && (log.steps > 0 || log.completedTaskIds.length || log.completedHabitIds.length));
+                const status = log?.completedAt ? "done" : hasLocalProgress || hasExternalActivity ? "partial" : "empty";
                 return <div className={`operation-calendar-day operation-calendar-day--${status} ${day.date === todayKey ? "operation-calendar-day--today" : ""}`} key={day.date}><strong>{new Date(`${day.date}T12:00:00`).getDate()}</strong><span>{day.recoveryDay ? "REC" : "ENT"}</span></div>;
               })}
             </div>

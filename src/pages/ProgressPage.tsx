@@ -14,6 +14,7 @@ import {
   TrendingDown,
   TrendingUp,
   Utensils,
+  Watch,
 } from "lucide-react";
 import { Link } from "react-router";
 import { getOperationDayPlan, OPERATION_START_DATE } from "../data/operationForjaPlan.ts";
@@ -108,6 +109,7 @@ export default function ProgressPage() {
   const addWeightEntry = useProfileStore((state) => state.addWeightEntry);
   const logs = useOperationForjaStore((state) => state.logs);
   const meals = useOperationForjaStore((state) => state.meals);
+  const externalActivities = useOperationForjaStore((state) => state.externalActivities);
   const freeHistory = useFreeWorkoutStore((state) => state.history);
   const missionHistory = usePlayerStore((state) => state.missionHistory);
   const currentStreak = usePlayerStore((state) => state.currentStreak);
@@ -121,6 +123,7 @@ export default function ProgressPage() {
 
   const recentLogs = Object.values(logs).filter((log) => inRange(log.date, start30, today));
   const recentMeals = meals.filter((meal) => inRange(meal.date, start30, today));
+  const recentExternal = externalActivities.filter((activity) => inRange(activity.date, start30, today));
   const recentFree = freeHistory.filter((entry) => inRange(entry.completedAt.slice(0, 10), start30, today));
   const recentMissions = missionHistory.filter((entry) => inRange(entry.completedAt.slice(0, 10), start30, today));
 
@@ -143,10 +146,11 @@ export default function ProgressPage() {
     if (log.completedAt) operationCompletedDays += 1;
   }
 
+  const externalCalories = recentExternal.reduce((sum, activity) => sum + activity.activeCalories, 0);
   const freeCalories = recentFree.reduce((sum, entry) => sum + entry.estimatedCalories, 0);
   const missionCalories = recentMissions.reduce((sum, entry) => sum + entry.estimatedCalories, 0);
-  const activityCalories = Math.round(operationActivityCalories + freeCalories + missionCalories);
-  const workoutCount30 = operationCompletedDays + recentFree.length + recentMissions.length;
+  const activityCalories = Math.round(operationActivityCalories + externalCalories + freeCalories + missionCalories);
+  const workoutCount30 = operationCompletedDays + recentExternal.length + recentFree.length + recentMissions.length;
   const nutritionDays = new Set(recentMeals.map((meal) => meal.date)).size;
   const nutritionCalories = recentMeals.reduce((sum, meal) => sum + meal.calories * meal.portionMultiplier, 0);
   const nutritionProtein = recentMeals.reduce((sum, meal) => sum + meal.protein * meal.portionMultiplier, 0);
@@ -166,7 +170,9 @@ export default function ProgressPage() {
     if (plan.cardio) {
       cardioPossible += 1;
       const options = getCardioOptions(cursor);
-      if (log && options.some((option) => log.completedTaskIds.includes(`cardio:${option.id}`))) cardioDone += 1;
+      const programmedDone = Boolean(log && options.some((option) => log.completedTaskIds.includes(`cardio:${option.id}`)));
+      const externalDone = externalActivities.some((activity) => activity.date === cursor && activity.substitutesCardio);
+      if (programmedDone || externalDone) cardioDone += 1;
     }
     strengthPossible += plan.exercises.length;
     if (log) {
@@ -203,6 +209,13 @@ export default function ProgressPage() {
       label: "Entrenamiento libre",
       calories: entry.estimatedCalories,
       detail: `${Math.max(1, Math.round(entry.activeSeconds / 60))} min · ${entry.validMovements} reps`,
+    })),
+    ...recentExternal.map((activity) => ({
+      id: activity.id,
+      date: activity.createdAt,
+      label: `Reloj · ${activity.name}`,
+      calories: activity.activeCalories,
+      detail: `${activity.durationMinutes} min${activity.distanceKm ? ` · ${activity.distanceKm} km` : ""}${activity.averageHeartRate ? ` · ${activity.averageHeartRate} bpm` : ""}`,
     })),
     ...recentLogs.filter((log) => log.completedAt).map((log) => ({
       id: `operation-${log.date}`,
@@ -243,9 +256,10 @@ export default function ProgressPage() {
 
         <section className="progress-metrics-grid">
           <article><Scale size={20} /><span>Peso actual</span><strong>{latestWeight.toFixed(1)} kg</strong><small className={weightDelta <= 0 ? "progress-good" : ""}><WeightTrendIcon size={14} /> {weightDelta === 0 ? "Sin cambio" : `${weightDelta > 0 ? "+" : ""}${weightDelta.toFixed(1)} kg desde el primer registro`}</small></article>
-          <article><CalendarCheck2 size={20} /><span>Sesiones · 30 días</span><strong>{workoutCount30}</strong><small>{totalWorkouts} entrenamientos de campaña históricos</small></article>
+          <article><CalendarCheck2 size={20} /><span>Sesiones · 30 días</span><strong>{workoutCount30}</strong><small>{recentExternal.length} externas · {totalWorkouts} de campaña históricas</small></article>
           <article><Footprints size={20} /><span>Pasos · 30 días</span><strong>{steps30.toLocaleString("es-MX")}</strong><small>registrados en Operación Forja</small></article>
           <article><Flame size={20} /><span>Actividad estimada</span><strong>{activityCalories.toLocaleString("es-MX")} kcal</strong><small>entrenos + pasos, sin metabolismo basal</small></article>
+          <article><Watch size={20} /><span>Actividad externa</span><strong>{externalCalories.toLocaleString("es-MX")} kcal</strong><small>{recentExternal.length} sesiones medidas por reloj</small></article>
           <article><HeartPulse size={20} /><span>Cardio</span><strong>{runKm.toFixed(1)} km</strong><small>{ropeMinutes} min de cuerda</small></article>
           <article><Utensils size={20} /><span>Alimentación</span><strong>{recentMeals.length} comidas</strong><small>{nutritionDays ? `${Math.round(nutritionCalories / nutritionDays)} kcal/día registradas` : "Sin días con comidas registradas"}</small></article>
         </section>

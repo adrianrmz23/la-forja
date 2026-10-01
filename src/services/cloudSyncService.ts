@@ -92,7 +92,7 @@ export function getDomainSnapshot(domain: SyncDomain): unknown {
 
   if (domain === "operation") {
     const state = useOperationForjaStore.getState();
-    return { logs: state.logs, meals: state.meals };
+    return { logs: state.logs, meals: state.meals, externalActivities: state.externalActivities };
   }
 
   if (domain === "generated-levels") {
@@ -214,7 +214,16 @@ function mergeOperation(localPayload: unknown, remotePayload: unknown): unknown 
       localItem.createdAt >= remoteItem.createdAt ? localItem : remoteItem,
   ).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
-  return { logs, meals };
+  const localExternal = Array.isArray(local.externalActivities) ? local.externalActivities : [];
+  const remoteExternal = Array.isArray(remote.externalActivities) ? remote.externalActivities : [];
+  const externalActivities = mergeById(
+    localExternal as Array<{ id: string; createdAt: string }>,
+    remoteExternal as Array<{ id: string; createdAt: string }>,
+    (localItem, remoteItem) =>
+      localItem.createdAt >= remoteItem.createdAt ? localItem : remoteItem,
+  ).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  return { logs, meals, externalActivities };
 }
 
 function mergeGeneratedLevels(localPayload: unknown, remotePayload: unknown): unknown {
@@ -369,6 +378,9 @@ export function applyDomainSnapshot(domain: SyncDomain, payload: unknown): void 
         meals: Array.isArray(data.meals)
           ? (data.meals as ReturnType<typeof useOperationForjaStore.getState>["meals"])
           : [],
+        externalActivities: Array.isArray(data.externalActivities)
+          ? (data.externalActivities as ReturnType<typeof useOperationForjaStore.getState>["externalActivities"])
+          : [],
       });
       return;
     }
@@ -427,7 +439,7 @@ export function clearLocalSyncedState(): void {
   try {
     useProfileStore.getState().resetProfile();
     usePlayerStore.getState().resetProgress();
-    useOperationForjaStore.setState({ logs: {}, meals: [] });
+    useOperationForjaStore.setState({ logs: {}, meals: [], externalActivities: [] });
     useGeneratedLevelStore.getState().clearGeneratedLevels();
     useFreeWorkoutStore.setState({ activeWorkout: null, history: [], lastPreferences: null });
     useExerciseIntelligenceStore.setState({ stats: {}, labResults: [], customRecipes: [] });

@@ -26,6 +26,21 @@ import { useProfileStore } from "../stores/profileStore.ts";
 import { estimateOperationEnergy } from "../utils/energyEstimate.ts";
 import "./ProgressPage.css";
 
+type BalanceRangePreset = "week" | "all" | "custom";
+
+interface BalanceDay {
+  date: string;
+  intakeCalories: number;
+  burnCalories: number;
+  balanceCalories: number;
+  baseCalories: number;
+  stepsCalories: number;
+  workoutCalories: number;
+  externalCalories: number;
+  otherTrainingCalories: number;
+  hasNutrition: boolean;
+}
+
 function dateKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -39,8 +54,22 @@ function shiftDate(value: string, days: number): string {
   return dateKey(date);
 }
 
+function startOfWeek(value: Date): string {
+  const date = new Date(value);
+  const weekday = date.getDay();
+  const mondayOffset = weekday === 0 ? -6 : 1 - weekday;
+  date.setDate(date.getDate() + mondayOffset);
+  return dateKey(date);
+}
+
 function inRange(value: string, start: string, end: string): boolean {
   return value >= start && value <= end;
+}
+
+function daysBetweenInclusive(start: string, end: string): number {
+  const from = new Date(`${start}T12:00:00`).getTime();
+  const to = new Date(`${end}T12:00:00`).getTime();
+  return Math.max(1, Math.floor((to - from) / 86_400_000) + 1);
 }
 
 function getCardioOptions(date: string) {
@@ -58,6 +87,19 @@ function formatCompactDate(value: string): string {
   return new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short" }).format(
     new Date(`${value}T12:00:00`),
   );
+}
+
+function formatRangeDate(value: string): string {
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(`${value}T12:00:00`));
+}
+
+function signedCalories(value: number): string {
+  const rounded = Math.round(value);
+  return `${rounded > 0 ? "+" : ""}${rounded.toLocaleString("es-MX")} kcal`;
 }
 
 function WeightChart({ entries }: { entries: Array<{ date: string; weightKg: number }> }) {
@@ -104,6 +146,9 @@ function WeightChart({ entries }: { entries: Array<{ date: string; weightKg: num
 export default function ProgressPage() {
   const [now] = useState(() => new Date());
   const [weightInput, setWeightInput] = useState("");
+  const [rangePreset, setRangePreset] = useState<BalanceRangePreset>("week");
+  const [customStart, setCustomStart] = useState(() => startOfWeek(new Date()));
+  const [customEnd, setCustomEnd] = useState(() => dateKey(new Date()));
   const profile = useProfileStore((state) => state.profile);
   const weightHistory = useProfileStore((state) => state.weightHistory);
   const addWeightEntry = useProfileStore((state) => state.addWeightEntry);
@@ -191,6 +236,118 @@ export default function ProgressPage() {
     steps: trackedDays ? Math.round((stepsScore / trackedDays) * 100) : 0,
   };
 
+  const trackingCandidates = [
+    ...Object.keys(logs),
+    ...meals.map((meal) => meal.date),
+    ...externalActivities.map((activity) => activity.date),
+  ].filter((date) => date <= today);
+  const firstTrackingDate = trackingCandidates.length
+    ? trackingCandidates.reduce((earliest, date) => (date < earliest ? date : earliest), trackingCandidates[0])
+    : OPERATION_START_DATE;
+  const weekStart = startOfWeek(now);
+  const customStartValue = customStart || weekStart;
+  const customEndValue = customEnd || today;
+  const normalizedCustomStart = customStartValue <= customEndValue ? customStartValue : customEndValue;
+  const normalizedCustomEnd = customEndValue >= customStartValue ? customEndValue : customStartValue;
+  const rangeStart = rangePreset === "week"
+    ? weekStart
+    : rangePreset === "all"
+      ? firstTrackingDate
+      : normalizedCustomStart;
+  const rangeEndCandidate = rangePreset === "custom" ? normalizedCustomEnd : today;
+  const rangeEnd = rangeEndCandidate > today ? today : rangeEndCandidate;
+  const safeRangeStart = rangeStart > rangeEnd ? rangeEnd : rangeStart;
+
+  const datesWithTracking = new Set<string>();
+  Object.keys(logs).forEach((date) => {
+    if (inRange(date, safeRangeStart, rangeEnd)) datesWithTracking.add(date);
+  });
+  meals.forEach((meal) => {
+    if (inRange(meal.date, safeRangeStart, rangeEnd)) datesWithTracking.add(meal.date);
+  });
+  externalActivities.forEach((activity) => {
+    if (inRange(activity.date, safeRangeStart, rangeEnd)) datesWithTracking.add(activity.date);
+  });
+  freeHistory.forEach((entry) => {
+    const date = entry.completedAt.slice(0, 10);
+    if (inRange(date, safeRangeStart, rangeEnd)) datesWithTracking.add(date);
+  });
+  missionHistory.forEach((entry) => {
+    const date = entry.completedAt.slice(0, 10);
+    if (inRange(date, safeRangeStart, rangeEnd)) datesWithTracking.add(date);
+  });
+
+  function weightForDate(date: string): number {
+    const previous = [...weightHistory]
+      .filter((entry) => entry.date <= date)
+      .sort((a, b) => b.date.localeCompare(a.date))[0];
+    return previous?.weightKg ?? profile.weightKg;
+  }
+
+  const balanceDays: BalanceDay[] = [...datesWithTracking]
+    .sort((a, b) => a.localeCompare(b))
+    .map((date) => {
+      const dayMeals = meals.filter((meal) => meal.date === date);
+      const dayExternal = externalActivities.filter((activity) => activity.date === date);
+      const dayFreeCalories = freeHistory
+        .filter((entry) => entry.completedAt.slice(0, 10) === date)
+        .reduce((sum, entry) => sum + entry.estimatedCalories, 0);
+      const dayMissionCalories = missionHistory
+        .filter((entry) => entry.completedAt.slice(0, 10) === date)
+        .reduce((sum, entry) => sum + entry.estimatedCalories, 0);
+      const plan = getOperationDayPlan(date);
+      const energy = estimateOperationEnergy({
+        plan,
+        log: logs[date],
+        meals: dayMeals,
+        weightKg: weightForDate(date),
+        externalActivities: dayExternal,
+      });
+      const otherTrainingCalories = dayFreeCalories + dayMissionCalories;
+      const burnCalories = energy.totalBurnCalories + otherTrainingCalories;
+
+      return {
+        date,
+        intakeCalories: energy.intakeCalories,
+        burnCalories,
+        balanceCalories: energy.intakeCalories - burnCalories,
+        baseCalories: energy.baseCalories,
+        stepsCalories: energy.stepsCalories,
+        workoutCalories: energy.workoutCalories,
+        externalCalories: energy.externalActivityCalories,
+        otherTrainingCalories,
+        hasNutrition: dayMeals.length > 0,
+      };
+    });
+
+  const totalIntake = balanceDays.reduce((sum, day) => sum + day.intakeCalories, 0);
+  const totalBurn = balanceDays.reduce((sum, day) => sum + day.burnCalories, 0);
+  const totalBalance = totalIntake - totalBurn;
+  const totalBase = balanceDays.reduce((sum, day) => sum + day.baseCalories, 0);
+  const totalStepsBurn = balanceDays.reduce((sum, day) => sum + day.stepsCalories, 0);
+  const totalProgrammedBurn = balanceDays.reduce((sum, day) => sum + day.workoutCalories, 0);
+  const totalExternalBurn = balanceDays.reduce((sum, day) => sum + day.externalCalories, 0);
+  const totalOtherTrainingBurn = balanceDays.reduce((sum, day) => sum + day.otherTrainingCalories, 0);
+  const rangeNutritionDays = balanceDays.filter((day) => day.hasNutrition).length;
+  const elapsedRangeDays = daysBetweenInclusive(safeRangeStart, rangeEnd);
+  const trackingCoverage = percentage(balanceDays.length, elapsedRangeDays);
+  const nutritionCoverage = percentage(rangeNutritionDays, elapsedRangeDays);
+  const averageDailyBalance = balanceDays.length ? Math.round(totalBalance / balanceDays.length) : 0;
+  const energyWeightEquivalentKg = Math.abs(totalBalance) / 7700;
+  const balanceLabel = totalBalance < 0 ? "Déficit acumulado" : totalBalance > 0 ? "Superávit acumulado" : "Balance acumulado";
+  const balanceTone = totalBalance < 0 ? "deficit" : totalBalance > 0 ? "surplus" : "neutral";
+  const selectedRangeLabel = rangePreset === "week"
+    ? "Esta semana"
+    : rangePreset === "all"
+      ? "Desde que empezaste"
+      : "Rango personalizado";
+  const dailyBalancePreview = [...balanceDays].reverse().slice(0, 10);
+
+  const rangeWeights = weightHistory.filter((entry) => inRange(entry.date, safeRangeStart, rangeEnd));
+  const rangeWeightDelta = rangeWeights.length >= 2
+    ? Math.round((rangeWeights[rangeWeights.length - 1].weightKg - rangeWeights[0].weightKg) * 10) / 10
+    : null;
+
   const firstWeight = weightHistory[0]?.weightKg ?? profile.weightKg;
   const latestWeight = weightHistory.at(-1)?.weightKg ?? profile.weightKg;
   const weightDelta = Math.round((latestWeight - firstWeight) * 10) / 10;
@@ -252,6 +409,95 @@ export default function ProgressPage() {
             <p>Una vista unificada de peso, cardio, fuerza, actividad, alimentación y consistencia.</p>
           </div>
           <div className="progress-hero-stat"><span>RACHA ACTUAL</span><strong>{currentStreak}</strong><small>días</small></div>
+        </section>
+
+        <section className="progress-balance-panel">
+          <div className="progress-balance-heading">
+            <div>
+              <span><Flame size={17} /> BALANCE ACUMULADO</span>
+              <h2>{selectedRangeLabel}</h2>
+              <p>{formatRangeDate(safeRangeStart)} — {formatRangeDate(rangeEnd)}</p>
+            </div>
+            <div className="progress-range-presets" aria-label="Seleccionar rango">
+              <button className={rangePreset === "week" ? "active" : ""} onClick={() => setRangePreset("week")} type="button">Semana</button>
+              <button className={rangePreset === "all" ? "active" : ""} onClick={() => setRangePreset("all")} type="button">Desde inicio</button>
+              <button className={rangePreset === "custom" ? "active" : ""} onClick={() => setRangePreset("custom")} type="button">Personalizado</button>
+            </div>
+          </div>
+
+          {rangePreset === "custom" && (
+            <div className="progress-custom-range">
+              <label>Desde<input max={today} onChange={(event) => setCustomStart(event.target.value)} type="date" value={customStart} /></label>
+              <span>→</span>
+              <label>Hasta<input max={today} onChange={(event) => setCustomEnd(event.target.value)} type="date" value={customEnd} /></label>
+            </div>
+          )}
+
+          <div className="progress-balance-main-grid">
+            <article className={`progress-net-card ${balanceTone}`}>
+              <span>{balanceLabel}</span>
+              <strong>{signedCalories(totalBalance)}</strong>
+              <small>{balanceDays.length ? `${averageDailyBalance > 0 ? "+" : ""}${averageDailyBalance.toLocaleString("es-MX")} kcal/día en ${balanceDays.length} días con datos` : "Aún no hay datos en este rango"}</small>
+            </article>
+            <article>
+              <span>Calorías consumidas</span>
+              <strong>{Math.round(totalIntake).toLocaleString("es-MX")}</strong>
+              <small>kcal registradas</small>
+            </article>
+            <article>
+              <span>Gasto estimado</span>
+              <strong>{Math.round(totalBurn).toLocaleString("es-MX")}</strong>
+              <small>base + pasos + entrenamientos</small>
+            </article>
+            <article className="progress-equivalent-card">
+              <span>Equivalencia energética</span>
+              <strong>≈ {energyWeightEquivalentKg.toFixed(2)} kg</strong>
+              <small>{totalBalance < 0 ? "de déficit energético teórico" : totalBalance > 0 ? "de superávit energético teórico" : "sin diferencia energética"}</small>
+            </article>
+          </div>
+
+          <div className="progress-balance-breakdown">
+            <div><span>Metabolismo base estimado</span><strong>{Math.round(totalBase).toLocaleString("es-MX")} kcal</strong></div>
+            <div><span>Pasos</span><strong>{Math.round(totalStepsBurn).toLocaleString("es-MX")} kcal</strong></div>
+            <div><span>Rutina programada</span><strong>{Math.round(totalProgrammedBurn).toLocaleString("es-MX")} kcal</strong></div>
+            <div><span>Actividad de reloj</span><strong>{Math.round(totalExternalBurn).toLocaleString("es-MX")} kcal</strong></div>
+            <div><span>Campaña / entrenamiento libre</span><strong>{Math.round(totalOtherTrainingBurn).toLocaleString("es-MX")} kcal</strong></div>
+          </div>
+
+          <div className="progress-balance-foot">
+            <div>
+              <strong>{trackingCoverage}%</strong>
+              <span>cobertura de actividad</span>
+            </div>
+            <div>
+              <strong>{nutritionCoverage}%</strong>
+              <span>días con alimentos registrados</span>
+            </div>
+            {rangeWeightDelta !== null && (
+              <div>
+                <strong>{rangeWeightDelta > 0 ? "+" : ""}{rangeWeightDelta.toFixed(1)} kg</strong>
+                <span>cambio real de peso registrado</span>
+              </div>
+            )}
+            <p>La equivalencia usa una referencia aproximada de 7,700 kcal por kg. No predice exactamente lo que marcará la báscula: agua, glucógeno, sal, digestión y adaptación metabólica también mueven el peso. Si faltan comidas por registrar, el déficit puede verse mayor de lo real.</p>
+          </div>
+
+          {dailyBalancePreview.length > 0 && (
+            <div className="progress-daily-balance">
+              <div className="progress-panel-heading">
+                <div><span><CalendarCheck2 size={16} /> DÍA A DÍA</span><h2>Últimos registros del rango</h2></div>
+                <strong>Balance = consumidas − gastadas</strong>
+              </div>
+              <div className="progress-daily-balance-list">
+                {dailyBalancePreview.map((day) => (
+                  <div key={day.date}>
+                    <span><strong>{formatCompactDate(day.date)}</strong><small>{day.intakeCalories.toLocaleString("es-MX")} consumidas · {day.burnCalories.toLocaleString("es-MX")} gastadas</small></span>
+                    <em className={day.balanceCalories < 0 ? "deficit" : day.balanceCalories > 0 ? "surplus" : "neutral"}>{signedCalories(day.balanceCalories)}</em>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="progress-metrics-grid">

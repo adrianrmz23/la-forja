@@ -150,7 +150,7 @@ export const useOperationForjaStore = create<OperationForjaState>()(
 
       addMeal: (meal) => {
         set((state) => ({
-          meals: [meal, ...state.meals].slice(0, 500),
+          meals: [meal, ...state.meals],
         }));
       },
 
@@ -171,7 +171,7 @@ export const useOperationForjaStore = create<OperationForjaState>()(
 
       addExternalActivity: (activity) => {
         set((state) => ({
-          externalActivities: [activity, ...state.externalActivities].slice(0, 800),
+          externalActivities: [activity, ...state.externalActivities],
         }));
       },
 

@@ -100,7 +100,7 @@ export const useFreeWorkoutStore = create<FreeWorkoutStore>()(
         };
 
         set((state) => ({
-          history: [entry, ...state.history].slice(0, 50),
+          history: [entry, ...state.history],
         }));
       },
 

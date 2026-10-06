@@ -45,9 +45,9 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
   {
     key: "march",
     exerciseId: "active-march",
-    name: "Marcha activa",
+    name: "Marcha en el lugar levantando rodillas",
     instructions:
-      "Marcha elevando las rodillas de forma alternada y acompaña cada paso con los brazos.",
+      "Camina en tu lugar: sube una rodilla, bájala y después sube la otra. Mantén el torso derecho y mueve los brazos de forma natural.",
     mode: "repetitions",
     countUnit: "step",
     detector: "march",
@@ -65,9 +65,9 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
   {
     key: "step-jack",
     exerciseId: "step-jack",
-    name: "Step jacks",
+    name: "Paso lateral abriendo y cerrando brazos",
     instructions:
-      "Da un paso lateral mientras elevas los brazos y regresa al centro. No necesitas saltar.",
+      "Da un paso hacia un lado mientras elevas los brazos; vuelve al centro y repite hacia el otro lado. No necesitas saltar.",
     mode: "repetitions",
     countUnit: "repetition",
     detector: "step-jack",
@@ -85,9 +85,9 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
   {
     key: "high-knees",
     exerciseId: "high-knees",
-    name: "Rodillas altas",
+    name: "Rodillas altas al frente",
     instructions:
-      "Eleva las rodillas de manera alternada y mantén un ritmo controlado.",
+      "Sube una rodilla hacia el frente, bájala y alterna con la otra. Mantén un ritmo controlado.",
     mode: "repetitions",
     countUnit: "step",
     detector: "high-knees",
@@ -105,9 +105,9 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
   {
     key: "jumping-jack",
     exerciseId: "jumping-jack",
-    name: "Jumping jacks",
+    name: "Saltos abriendo brazos y piernas",
     instructions:
-      "Abre piernas y eleva los brazos, después regresa al centro.",
+      "Salta abriendo las piernas mientras subes los brazos; vuelve con pies juntos y brazos abajo.",
     mode: "repetitions",
     countUnit: "repetition",
     detector: "jumping-jack",
@@ -125,9 +125,9 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
   {
     key: "squat",
     exerciseId: "squat",
-    name: "Sentadillas",
+    name: "Sentadilla",
     instructions:
-      "Lleva la cadera hacia atrás, baja con control y vuelve completamente de pie.",
+      "Lleva la cadera hacia atrás como si fueras a sentarte, baja con control y vuelve completamente de pie.",
     mode: "repetitions",
     countUnit: "repetition",
     detector: "squat",
@@ -145,9 +145,9 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
   {
     key: "reverse-lunge",
     exerciseId: "reverse-lunge",
-    name: "Desplantes alternados",
+    name: "Desplante hacia atrás alternando piernas",
     instructions:
-      "Lleva una pierna hacia atrás, baja con control y vuelve al centro.",
+      "Da un paso hacia atrás con una pierna, baja ambas rodillas con control, vuelve de pie y repite con la otra pierna.",
     mode: "repetitions",
     countUnit: "repetition",
     detector: "lunge",
@@ -165,9 +165,9 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
   {
     key: "calf-raise",
     exerciseId: "calf-raise",
-    name: "Elevaciones de talones",
+    name: "Elevación de talones de pie",
     instructions:
-      "Eleva ambos talones, sube sobre las puntas y vuelve a apoyar con control.",
+      "De pie, eleva ambos talones para quedar sobre las puntas y bájalos lentamente hasta apoyar todo el pie.",
     mode: "repetitions",
     countUnit: "repetition",
     detector: "calf-raise",
@@ -225,9 +225,9 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
   {
     key: "biceps-curl",
     exerciseId: "biceps-curl",
-    name: "Curl de bíceps",
+    name: "Curl de bíceps con mancuernas",
     instructions:
-      "Flexiona uno o ambos brazos y vuelve a extenderlos. Las mancuernas son opcionales.",
+      "Con una mancuerna en cada mano y los codos pegados al cuerpo, flexiona los brazos hasta acercar las mancuernas a los hombros y baja con control.",
     mode: "repetitions",
     countUnit: "repetition",
     detector: "biceps-curl",
@@ -246,9 +246,9 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
   {
     key: "shoulder-press",
     exerciseId: "shoulder-press",
-    name: "Press de hombros",
+    name: "Press de hombros con mancuernas",
     instructions:
-      "Empuja ambos brazos arriba y regresa a los hombros. Las mancuernas son opcionales.",
+      "Sostén las mancuernas a la altura de los hombros, empuja ambos brazos hacia arriba y vuelve lentamente a la posición inicial.",
     mode: "repetitions",
     countUnit: "repetition",
     detector: "shoulder-press",
@@ -267,9 +267,9 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
   {
     key: "lateral-raise",
     exerciseId: "lateral-raise",
-    name: "Elevaciones laterales",
+    name: "Elevaciones laterales con mancuernas",
     instructions:
-      "Eleva los brazos hacia los lados hasta una altura cómoda y bájalos con control.",
+      "Con una mancuerna en cada mano y los brazos junto al cuerpo, eleva ambos brazos hacia los lados hasta cerca de la altura de los hombros y baja con control.",
     mode: "repetitions",
     countUnit: "repetition",
     detector: "lateral-raise",
@@ -288,9 +288,9 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
   {
     key: "front-raise",
     exerciseId: "front-raise",
-    name: "Elevaciones frontales",
+    name: "Elevaciones frontales con mancuernas",
     instructions:
-      "Eleva ambos brazos al frente hasta cerca de los hombros y bájalos con control.",
+      "Con una mancuerna en cada mano, eleva ambos brazos al frente hasta cerca de la altura de los hombros y bájalos lentamente.",
     mode: "repetitions",
     countUnit: "repetition",
     detector: "front-raise",

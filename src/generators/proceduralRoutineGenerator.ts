@@ -3,6 +3,10 @@ import {
   type ExerciseCatalogEntry,
   type RoutineExerciseStage,
 } from "../data/exerciseCatalog.ts";
+import {
+  DUMBBELL_CAMERA_EXERCISE_KEYS,
+  isAutomaticCameraExercise,
+} from "../data/automaticRoutinePolicy.ts";
 import type {
   GenerateProceduralLevelOptions,
   GeneratedLevel,
@@ -120,13 +124,15 @@ const FORBIDDEN_PROCEDURAL_DETECTORS = new Set([
   "boxing-combination",
 ]);
 
-const COMPOUND_EXERCISE_KEYS = new Set([
-  "squat-to-press",
-  "march-press",
-  "step-jack-press",
-  "squat-knee-drive",
-  "lateral-step-squat",
-  "knee-to-elbow",
+const SIMPLE_BOSS_KEYS = new Set([
+  "squat",
+  "reverse-lunge",
+  "high-knees",
+  "jumping-jack",
+  "biceps-curl",
+  "shoulder-press",
+  "lateral-raise",
+  "front-raise",
 ]);
 
 function normalizeTheme(theme: LevelTheme | undefined): LevelTheme {
@@ -209,6 +215,7 @@ function selectUniqueExercises(
 ): ExerciseCatalogEntry[] {
   const usable = candidates.filter(
     (candidate) =>
+      isAutomaticCameraExercise(candidate) &&
       !FORBIDDEN_PROCEDURAL_DETECTORS.has(candidate.detector),
   );
   const fresh = usable.filter(
@@ -446,34 +453,18 @@ export function generateProceduralLevel(
     ),
   );
 
-  const compoundCandidates = getExercisesForStage("main").filter(
-    (entry) => COMPOUND_EXERCISE_KEYS.has(entry.key),
+  const dumbbellCandidates = getExercisesForStage("main", "strength").filter(
+    (entry) => DUMBBELL_CAMERA_EXERCISE_KEYS.has(entry.key),
   );
-  const compoundEntries = selectUniqueExercises(
-    compoundCandidates,
-    3,
+  const dumbbellEntries = selectUniqueExercises(
+    dumbbellCandidates,
+    4,
     random,
-    new Set([
-      ...primaryEntries.map((entry) => entry.exerciseId),
-      ...secondaryEntries.map((entry) => entry.exerciseId),
-    ]),
+    new Set(),
   );
 
   const bossCandidates = getExercisesForStage("boss").filter(
-    (entry) =>
-      [
-        "squat-to-press",
-        "march-press",
-        "step-jack-press",
-        "squat-knee-drive",
-        "lateral-step-squat",
-        "jumping-jack",
-        "knee-to-elbow",
-        "squat",
-        "reverse-lunge",
-        "shoulder-press",
-        "high-knees",
-      ].includes(entry.key),
+    (entry) => SIMPLE_BOSS_KEYS.has(entry.key),
   );
   const bossEntries = selectUniqueExercises(
     bossCandidates,
@@ -516,9 +507,9 @@ export function generateProceduralLevel(
     ),
     createBlock(
       "procedural-compound",
-      "Cadena del Forjador",
+      "Fuerza con mancuernas",
       settings.compoundRounds,
-      compoundEntries,
+      dumbbellEntries,
       options.difficulty,
       "main",
       random,
@@ -549,7 +540,7 @@ export function generateProceduralLevel(
     id: routineId,
     name,
     description:
-      "Nivel procedural largo de cuerpo completo, con ejercicios amplios y combinaciones compuestas tolerantes. La misión termina al completar todos los bloques; las calorías son solo una referencia estimada.",
+      "Nivel de cuerpo completo con movimientos sencillos, nombres claros y detectores de cámara confiables. Incluye un bloque específico de mancuernas y evita combinaciones complejas o boxeo automático.",
     minimumCalories,
     plannedCalories: Math.max(
       minimumCalories + 25,

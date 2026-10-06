@@ -44,7 +44,7 @@ const HABITS: OperationHabit[] = [
 const torsoA: OperationExercise[] = [
   {
     id: "db-floor-press",
-    name: "Press con mancuernas",
+    name: "Press de pecho acostado con mancuernas",
     sets: 3,
     reps: "10-15",
     equipment: "dumbbells",
@@ -53,7 +53,7 @@ const torsoA: OperationExercise[] = [
   },
   {
     id: "db-row",
-    name: "Remo con mancuerna",
+    name: "Remo inclinado con mancuerna",
     sets: 3,
     reps: "10-15 por lado",
     equipment: "dumbbells",
@@ -62,7 +62,7 @@ const torsoA: OperationExercise[] = [
   },
   {
     id: "shoulder-press",
-    name: "Press militar con mancuernas",
+    name: "Press de hombros con mancuernas",
     sets: 3,
     reps: "10-12",
     equipment: "dumbbells",
@@ -71,7 +71,7 @@ const torsoA: OperationExercise[] = [
   },
   {
     id: "lateral-raise",
-    name: "Elevaciones laterales",
+    name: "Elevaciones laterales con mancuernas",
     sets: 3,
     reps: "12-15",
     equipment: "dumbbells",
@@ -80,7 +80,7 @@ const torsoA: OperationExercise[] = [
   },
   {
     id: "bicep-curl",
-    name: "Curl de bíceps",
+    name: "Curl de bíceps con mancuernas",
     sets: 3,
     reps: "12-15",
     equipment: "dumbbells",
@@ -102,7 +102,7 @@ const torsoB: OperationExercise[] = [
   ...torsoA.slice(0, 3),
   {
     id: "band-pull-apart",
-    name: "Band pull-apart",
+    name: "Apertura de brazos con liga",
     sets: 3,
     reps: "15-20",
     equipment: "bands",
@@ -111,7 +111,7 @@ const torsoB: OperationExercise[] = [
   },
   {
     id: "hammer-curl",
-    name: "Curl martillo",
+    name: "Curl martillo con mancuernas",
     sets: 3,
     reps: "12-15",
     equipment: "dumbbells",
@@ -132,7 +132,7 @@ const torsoB: OperationExercise[] = [
 const legsA: OperationExercise[] = [
   {
     id: "goblet-squat",
-    name: "Sentadilla goblet",
+    name: "Sentadilla sosteniendo una mancuerna al pecho",
     sets: 3,
     reps: "12-15",
     equipment: "dumbbells",
@@ -150,7 +150,7 @@ const legsA: OperationExercise[] = [
   },
   {
     id: "reverse-lunge",
-    name: "Desplante inverso",
+    name: "Desplante hacia atrás",
     sets: 3,
     reps: "10 por pierna",
     equipment: "bodyweight",
@@ -181,7 +181,7 @@ const legsB: OperationExercise[] = [
   ...legsA.slice(0, 2),
   {
     id: "split-squat",
-    name: "Split squat",
+    name: "Sentadilla estática con una pierna adelante",
     sets: 3,
     reps: "10-12 por pierna",
     equipment: "bodyweight",
@@ -203,7 +203,7 @@ const legsB: OperationExercise[] = [
 const core: OperationExercise[] = [
   {
     id: "dead-bug",
-    name: "Dead bug",
+    name: "Extensión alternada acostado",
     sets: 3,
     reps: "8-10 por lado",
     equipment: "bodyweight",
@@ -212,7 +212,7 @@ const core: OperationExercise[] = [
   },
   {
     id: "bird-dog",
-    name: "Bird dog",
+    name: "Brazo y pierna contraria en cuatro apoyos",
     sets: 3,
     reps: "8-10 por lado",
     equipment: "bodyweight",
@@ -221,7 +221,7 @@ const core: OperationExercise[] = [
   },
   {
     id: "band-pallof",
-    name: "Pallof press con liga",
+    name: "Press antirotación con liga",
     sets: 3,
     reps: "10-12 por lado",
     equipment: "bands",

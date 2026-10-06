@@ -11,72 +11,9 @@ import type {
   ProceduralDifficulty,
 } from "../types/generatedLevel.ts";
 
+import { refreshGeneratedLevelWithSafeRoutine } from "../utils/routineSafety.ts";
+
 const MINIMUM_ROUTINE_CALORIES = 250;
-
-const LEGACY_BOXING_DETECTORS = new Set([
-  "boxing",
-  "jab",
-  "cross",
-  "hooks",
-  "boxing-combination",
-]);
-
-function containsLegacyBoxing(level: GeneratedLevel): boolean {
-  const exercises = [
-    ...level.routine.blocks.flatMap((block) => block.exercises),
-    ...(level.routine.overload?.exercises ?? []),
-  ];
-
-  return exercises.some((exercise) =>
-    LEGACY_BOXING_DETECTORS.has(exercise.detector),
-  );
-}
-
-function removeRoutineOverload(level: GeneratedLevel): GeneratedLevel {
-  const routine = { ...level.routine };
-
-  delete routine.overload;
-
-  return {
-    ...level,
-    routine,
-  };
-}
-
-function refreshProceduralRoutineVolume(
-  level: GeneratedLevel,
-): GeneratedLevel {
-  const cleaned = removeRoutineOverload(level);
-
-  if (cleaned.source !== "procedural") {
-    return cleaned;
-  }
-
-  try {
-    const regenerated = generateProceduralLevel({
-      levelNumber: cleaned.sequence,
-      difficulty: cleaned.difficulty,
-      minimumCalories: Math.max(
-        MINIMUM_ROUTINE_CALORIES,
-        cleaned.routine.minimumCalories,
-      ),
-      preferredTheme: cleaned.theme,
-      seed: cleaned.seed,
-      recentExerciseIds: [],
-    });
-
-    return {
-      ...cleaned,
-      routine: {
-        ...regenerated.routine,
-        id: cleaned.routine.id,
-        name: cleaned.routine.name,
-      },
-    };
-  } catch {
-    return cleaned;
-  }
-}
 
 /*
  * Se conserva esta estructura para que BattlePage pueda seguir
@@ -392,17 +329,13 @@ export const useGeneratedLevelStore =
       }),
       {
         name: "la-forja-generated-levels",
-        version: 5,
+        version: 6,
         migrate: (persistedState: unknown) => {
           const previous =
             (persistedState ?? {}) as Partial<GeneratedLevelStore>;
 
           const safeLevels = Array.isArray(previous.levels)
-            ? previous.levels
-                .filter(
-                  (level) => !containsLegacyBoxing(level),
-                )
-                .map(refreshProceduralRoutineVolume)
+            ? previous.levels.map(refreshGeneratedLevelWithSafeRoutine)
             : [];
 
           const activeLevelId = safeLevels.some(

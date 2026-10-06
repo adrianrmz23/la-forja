@@ -23,23 +23,19 @@ export default async function handler(request, response) {
     (item) => item && typeof item.key === "string" && typeof item.name === "string",
   );
 
-  const builtins = cleanedExercises.filter((item) => item.source === "builtin");
-  const repdb = cleanedExercises
-    .filter((item) => item.source === "repdb")
-    .sort((first, second) => Number(second.reliability || 0) - Number(first.reliability || 0));
-  const aiRecipes = cleanedExercises.filter((item) => item.source === "ai");
+  const safeExercises = cleanedExercises
+    .filter((item) => item.source === "builtin")
+    .sort((first, second) => Number(second.reliability || 0) - Number(first.reliability || 0))
+    .slice(0, 24);
 
-  // Evitamos que los ejercicios base ocupen todo el contexto. Dejamos espacio
-  // explícito a RepDB para que AI Coach tenga variedad real.
-  const safeExercises = [
-    ...builtins.slice(0, 28),
-    ...repdb.slice(0, 44),
-    ...aiRecipes.slice(0, 12),
-  ].slice(0, 84);
-
-  const repdbCount = safeExercises.filter((item) => item.source === "repdb").length;
-
-  const schemaPrompt = `Devuelve SOLO JSON válido con esta forma exacta:\n{\n  "name": "string",\n  "description": "string",\n  "rationale": "string breve",\n  "blocks": [{"id":"string","name":"string","rounds":1,"exerciseKeys":["key"]}]\n}\nReglas: 4-5 bloques, calentamiento primero, cuerpo completo salvo que el enfoque pida otra cosa, no inventes keys, no incluyas boxeo, prioriza reliability alta, usa movimientos compuestos sin exigir técnica perfecta, respeta mancuernas e impacto, y diseña el volumen pensando en ${preferences.targetMinutes} minutos. Las repeticiones y ajuste fino los calcula La Forja localmente. Hay ${repdbCount} ejercicios compatibles de RepDB disponibles. Cuando existan opciones adecuadas, intenta que aproximadamente 30-50% de las selecciones usen keys que empiecen por "repdb:" para aportar variedad, sin sacrificar detectabilidad ni fiabilidad.`;
+  const schemaPrompt = `Devuelve SOLO JSON válido con esta forma exacta:
+{
+  "name": "string",
+  "description": "string",
+  "rationale": "string breve",
+  "blocks": [{"id":"string","name":"string","rounds":1,"exerciseKeys":["key"]}]
+}
+Reglas obligatorias: 4-5 bloques; calentamiento primero; usa exclusivamente las keys recibidas; no inventes ejercicios; no incluyas boxeo; no combines dos movimientos en una sola repetición; evita nombres o técnicas rebuscadas; prioriza reliability alta; si hasDumbbells=true incluye varios ejercicios con equipment="optional-dumbbells"; si hasDumbbells=false no elijas esos ejercicios; respeta preferredImpact; diseña el volumen pensando en ${preferences.targetMinutes} minutos. La Forja calcula repeticiones y descansos localmente. El objetivo es que el usuario entienda el ejercicio por su nombre y que la cámara pueda contarlo con fiabilidad.`;
 
   try {
     const upstream = await fetch(`${baseURL}/chat/completions`, {
@@ -57,7 +53,7 @@ export default async function handler(request, response) {
           {
             role: "system",
             content:
-              "Eres el entrenador de La Forja. Planificas rutinas seguras y detectables con cámara usando exclusivamente el catálogo permitido. Aprovecha variantes RepDB compatibles para evitar rutinas repetitivas. No diagnosticas ni sustituyes consejo médico.",
+              "Eres el entrenador de La Forja. Planificas rutinas sencillas, claras y detectables con cámara usando exclusivamente el catálogo permitido. Prefieres ejercicios básicos con mancuernas cuando están disponibles y evitas boxeo, movimientos compuestos innecesarios y nombres técnicos confusos. No diagnosticas ni sustituyes consejo médico.",
           },
           {
             role: "user",

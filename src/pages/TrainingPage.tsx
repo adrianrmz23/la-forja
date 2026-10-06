@@ -664,7 +664,7 @@ function TrainingPage() {
               <span>
                 <strong>Tengo mancuernas</strong>
                 <small>
-                  Prioriza curls, elevaciones, presses y ejercicios compuestos.
+                  Prioriza curls, elevaciones y presses simples que la cámara puede contar.
                 </small>
               </span>
             </label>
@@ -696,13 +696,13 @@ function TrainingPage() {
               >
                 <Bot size={20} />
                 <strong>AI Coach</strong>
-                <small>Planifica con ejercicios detectables y fiabilidad real</small>
+                <small>Organiza solo ejercicios simples y detectables</small>
               </button>
             </div>
 
             <Link className="training-lab-link" to="/movement-lab">
               <Beaker size={19} />
-              <span><strong>Laboratorio de movimientos</strong><small>Prueba y aprueba nuevos ejercicios compuestos</small></span>
+              <span><strong>Laboratorio de movimientos</strong><small>Prueba movimientos experimentales por separado</small></span>
             </Link>
 
             {aiMessage && <p className="training-ai-message">{aiMessage}</p>}
@@ -795,7 +795,7 @@ function TrainingPage() {
                                     {exercise.equipment === "optional-dumbbells" && (
                                       <small>
                                         <Dumbbell size={12} />
-                                        Mancuernas opcionales
+                                        Mancuernas
                                       </small>
                                     )}
                                     <span>{exercise.met.toFixed(1)} MET</span>
@@ -886,7 +886,7 @@ function TrainingPage() {
                                         {option.equipment === "optional-dumbbells" && (
                                           <em>
                                             <Dumbbell size={12} />
-                                            Mancuernas opcionales
+                                            Mancuernas
                                           </em>
                                         )}
                                       </button>
@@ -931,8 +931,8 @@ function TrainingPage() {
                 <span>LA RUTINA APARECERÁ AQUÍ</span>
                 <h2>{targetMinutes} minutos disponibles</h2>
                 <p>
-                  La Forja combinará calentamiento, fuerza, cardio y ejercicios
-                  compuestos según tus opciones.
+                  La Forja combinará calentamiento, fuerza, cardio y ejercicios con
+                  mancuernas según tus opciones.
                 </p>
                 <div>
                   <Clock3 size={18} />
@@ -980,7 +980,7 @@ function TrainingPage() {
           )}
         </section>
 
-        <footer className="training-data-credit">Exercise data by RepDB (repdb.co) · La IA solo recibe metadatos permitidos, nunca imágenes de RepDB.</footer>
+        <footer className="training-data-credit">Exercise data by RepDB (repdb.co) · RepDB se usa como referencia visual; las rutinas automáticas usan solo el catálogo simple de La Forja.</footer>
       </div>
 
       {exercisePreview && (
@@ -1024,7 +1024,7 @@ function TrainingPage() {
               {exercisePreview.exercise.equipment === "optional-dumbbells" && (
                 <span>
                   <Dumbbell size={13} />
-                  Mancuernas opcionales
+                  Mancuernas
                 </span>
               )}
             </div>

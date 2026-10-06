@@ -17,9 +17,9 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         {
           id: "warmup-march",
           exerciseId: "active-march",
-          name: "Marcha activa",
+          name: "Marcha en el lugar levantando rodillas",
           instructions:
-            "Marcha elevando ligeramente las rodillas y alternando las piernas.",
+            "Camina en tu lugar: sube una rodilla, bájala y después sube la otra.",
           mode: "repetitions",
           target: 40,
           countUnit: "step",
@@ -31,9 +31,9 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         {
           id: "warmup-step-jacks",
           exerciseId: "step-jack",
-          name: "Step jacks",
+          name: "Paso lateral abriendo y cerrando brazos",
           instructions:
-            "Da un paso lateral mientras elevas los brazos y regresa al centro. No necesitas saltar.",
+            "Da un paso hacia un lado mientras elevas los brazos; vuelve al centro y repite hacia el otro lado. No necesitas saltar.",
           mode: "repetitions",
           target: 20,
           countUnit: "repetition",
@@ -45,7 +45,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         {
           id: "warmup-high-knees",
           exerciseId: "high-knees",
-          name: "Rodillas altas de calentamiento",
+          name: "Rodillas altas al frente",
           instructions:
             "Eleva las rodillas de manera alternada con un ritmo moderado.",
           mode: "repetitions",
@@ -59,7 +59,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         {
           id: "warmup-squats",
           exerciseId: "squat",
-          name: "Sentadillas de calentamiento",
+          name: "Sentadilla de calentamiento",
           instructions:
             "Desciende con control y regresa completamente de pie.",
           mode: "repetitions",
@@ -80,7 +80,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         {
           id: "strength-squats",
           exerciseId: "squat",
-          name: "Sentadillas",
+          name: "Sentadilla",
           instructions:
             "Lleva la cadera hacia atrás, baja con control y vuelve de pie.",
           mode: "repetitions",
@@ -94,9 +94,9 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         {
           id: "strength-lunges",
           exerciseId: "reverse-lunge",
-          name: "Desplantes alternados",
+          name: "Desplante hacia atrás alternando piernas",
           instructions:
-            "Lleva una pierna hacia atrás, baja hasta donde puedas con control y regresa al centro.",
+            "Da un paso hacia atrás con una pierna, baja ambas rodillas con control, vuelve de pie y repite con la otra pierna.",
           mode: "repetitions",
           target: 16,
           countUnit: "repetition",
@@ -108,7 +108,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         {
           id: "strength-calf-raises",
           exerciseId: "calf-raise",
-          name: "Elevaciones de talones",
+          name: "Elevación de talones de pie",
           instructions:
             "Eleva ambos talones, sube sobre las puntas y vuelve a apoyar con control.",
           mode: "repetitions",
@@ -122,7 +122,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         {
           id: "strength-high-knees",
           exerciseId: "high-knees",
-          name: "Rodillas altas",
+          name: "Rodillas altas al frente",
           instructions:
             "Eleva las rodillas de manera alternada manteniendo un ritmo constante.",
           mode: "repetitions",
@@ -143,9 +143,9 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         {
           id: "arms-biceps-curl",
           exerciseId: "biceps-curl",
-          name: "Curl de bíceps",
+          name: "Curl de bíceps con mancuernas",
           instructions:
-            "Flexiona uno o ambos brazos y vuelve a extenderlos. Las mancuernas son opcionales.",
+            "Con una mancuerna en cada mano y los codos junto al cuerpo, flexiona los brazos hacia los hombros y baja con control.",
           mode: "repetitions",
           target: 14,
           countUnit: "repetition",
@@ -158,7 +158,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         {
           id: "arms-shoulder-press",
           exerciseId: "shoulder-press",
-          name: "Press de hombros",
+          name: "Press de hombros con mancuernas",
           instructions:
             "Comienza con las manos cerca de los hombros, empuja arriba y regresa lentamente.",
           mode: "repetitions",
@@ -173,7 +173,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         {
           id: "arms-lateral-raise",
           exerciseId: "lateral-raise",
-          name: "Elevaciones laterales",
+          name: "Elevaciones laterales con mancuernas",
           instructions:
             "Eleva los brazos hacia los lados hasta una altura cómoda y bájalos con control.",
           mode: "repetitions",
@@ -188,7 +188,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         {
           id: "arms-front-raise",
           exerciseId: "front-raise",
-          name: "Elevaciones frontales",
+          name: "Elevaciones frontales con mancuernas",
           instructions:
             "Eleva ambos brazos al frente hasta cerca de la altura de los hombros y bájalos con control.",
           mode: "repetitions",
@@ -210,7 +210,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         {
           id: "cardio-jumping-jacks",
           exerciseId: "jumping-jack",
-          name: "Jumping jacks",
+          name: "Saltos abriendo brazos y piernas",
           instructions:
             "Abre piernas y eleva los brazos. Regresa con pies juntos y brazos abajo.",
           mode: "repetitions",
@@ -222,32 +222,32 @@ export const ashAssaultRoutine: WorkoutRoutine = {
           estimatedSecondsPerRep: 1.3,
         },
         {
-          id: "cardio-knee-to-elbow",
-          exerciseId: "knee-to-elbow",
-          name: "Rodilla al codo de pie",
+          id: "cardio-fast-march",
+          exerciseId: "active-march",
+          name: "Marcha rápida levantando rodillas",
           instructions:
-            "Acerca una rodilla al brazo contrario. No necesitas tocar el codo.",
+            "Camina rápido en tu lugar: sube una rodilla, bájala y después sube la otra. Mantén el torso derecho.",
           mode: "repetitions",
-          target: 20,
-          countUnit: "repetition",
+          target: 50,
+          countUnit: "step",
           restSeconds: 18,
-          met: 7,
-          detector: "knee-to-elbow",
-          estimatedSecondsPerRep: 1.8,
+          met: 5.5,
+          detector: "march",
+          estimatedSecondsPerRep: 0.9,
         },
         {
-          id: "cardio-lateral-step-squat",
-          exerciseId: "lateral-step-squat",
-          name: "Paso lateral con sentadilla",
+          id: "cardio-step-jacks",
+          exerciseId: "step-jack",
+          name: "Paso lateral abriendo y cerrando brazos",
           instructions:
-            "Da un paso lateral, baja en sentadilla y vuelve al centro.",
+            "Da un paso hacia un lado mientras elevas los brazos; vuelve al centro y repite hacia el otro lado.",
           mode: "repetitions",
-          target: 12,
+          target: 24,
           countUnit: "repetition",
           restSeconds: 40,
-          met: 7,
-          detector: "lateral-step-squat",
-          estimatedSecondsPerRep: 3,
+          met: 5,
+          detector: "step-jack",
+          estimatedSecondsPerRep: 1.8,
         },
       ],
     },
@@ -257,24 +257,24 @@ export const ashAssaultRoutine: WorkoutRoutine = {
       rounds: 3,
       exercises: [
         {
-          id: "boss-squat-to-press",
-          exerciseId: "squat-to-press",
-          name: "Sentadilla con press",
+          id: "boss-dumbbell-squat",
+          exerciseId: "squat",
+          name: "Sentadilla sosteniendo mancuernas",
           instructions:
-            "Haz una sentadilla, vuelve de pie y termina elevando los brazos por encima de los hombros.",
+            "Sostén una mancuerna a cada lado del cuerpo, lleva la cadera hacia atrás, baja con control y vuelve completamente de pie.",
           mode: "repetitions",
-          target: 10,
+          target: 12,
           countUnit: "repetition",
           restSeconds: 20,
-          met: 8,
-          detector: "squat-to-press",
-          estimatedSecondsPerRep: 4.5,
+          met: 7,
+          detector: "squat",
+          estimatedSecondsPerRep: 3,
           equipment: "optional-dumbbells",
         },
         {
           id: "boss-jumping-jacks",
           exerciseId: "jumping-jack",
-          name: "Jumping jacks del Guardián",
+          name: "Saltos abriendo brazos y piernas",
           instructions:
             "Abre brazos y piernas con ritmo constante y vuelve al centro.",
           mode: "repetitions",
@@ -288,7 +288,7 @@ export const ashAssaultRoutine: WorkoutRoutine = {
         {
           id: "boss-high-knees",
           exerciseId: "high-knees",
-          name: "Rodillas altas del Guardián",
+          name: "Rodillas altas al frente",
           instructions:
             "Eleva las rodillas de manera alternada para terminar la ronda.",
           mode: "repetitions",

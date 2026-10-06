@@ -6,6 +6,13 @@ import { useGeneratedLevelStore } from "../stores/generatedLevelStore.ts";
 import { useOperationForjaStore } from "../stores/operationForjaStore.ts";
 import { usePlayerStore } from "../stores/playerStore.ts";
 import { useProfileStore } from "../stores/profileStore.ts";
+import type { GeneratedLevel } from "../types/generatedLevel.ts";
+import type { FreeWorkoutPlan } from "../types/freeWorkout.ts";
+import {
+  refreshGeneratedLevelWithSafeRoutine,
+  routineUsesOnlySafeCameraExercises,
+  sanitizeFreeWorkoutPlan,
+} from "../utils/routineSafety.ts";
 
 export type SyncDomain =
   | "profile"
@@ -31,6 +38,51 @@ const remoteUpdatedAt = new Map<SyncDomain, string>();
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function sanitizeDomainPayload(
+  domain: SyncDomain,
+  payload: unknown,
+): unknown {
+  const data = asRecord(payload);
+
+  if (domain === "generated-levels") {
+    const levels = Array.isArray(data.levels)
+      ? data.levels.map((item) => {
+          const level = item as GeneratedLevel;
+          return routineUsesOnlySafeCameraExercises(level.routine)
+            ? level
+            : refreshGeneratedLevelWithSafeRoutine(level);
+        })
+      : [];
+
+    return {
+      ...data,
+      levels,
+    };
+  }
+
+  if (domain === "free-workouts") {
+    const activeWorkout =
+      data.activeWorkout && typeof data.activeWorkout === "object"
+        ? sanitizeFreeWorkoutPlan(data.activeWorkout as FreeWorkoutPlan)
+        : null;
+
+    return {
+      ...data,
+      activeWorkout,
+    };
+  }
+
+  return payload;
+}
+
+function payloadChanged(first: unknown, second: unknown): boolean {
+  try {
+    return JSON.stringify(first) !== JSON.stringify(second);
+  } catch {
+    return true;
+  }
 }
 
 function uniqueStrings(...values: unknown[]): string[] {
@@ -470,7 +522,10 @@ export async function initialCloudSync(session: CloudSession): Promise<void> {
 
   for (const domain of ALL_DOMAINS) {
     const row = remote.get(domain);
-    const localPayload = getDomainSnapshot(domain);
+    const localPayload = sanitizeDomainPayload(
+      domain,
+      getDomainSnapshot(domain),
+    );
 
     if (!row) {
       const saved = await upsertRemoteDomain(session, domain, localPayload);
@@ -478,12 +533,16 @@ export async function initialCloudSync(session: CloudSession): Promise<void> {
       continue;
     }
 
-    const nextPayload = isFirstMigration
+    const mergedPayload = isFirstMigration
       ? mergeDomain(domain, localPayload, row.payload)
       : row.payload;
+    const nextPayload = sanitizeDomainPayload(domain, mergedPayload);
 
     applyDomainSnapshot(domain, nextPayload);
-    const saved = isFirstMigration
+
+    const shouldPersistSanitized =
+      isFirstMigration || payloadChanged(nextPayload, row.payload);
+    const saved = shouldPersistSanitized
       ? await upsertRemoteDomain(session, domain, nextPayload)
       : row;
     remoteUpdatedAt.set(domain, saved.updated_at);
@@ -502,8 +561,16 @@ export async function pullCloudChanges(session: CloudSession): Promise<boolean> 
     const known = remoteUpdatedAt.get(domain);
     if (known && row.updated_at <= known) continue;
 
-    applyDomainSnapshot(domain, row.payload);
-    remoteUpdatedAt.set(domain, row.updated_at);
+    const safePayload = sanitizeDomainPayload(domain, row.payload);
+    applyDomainSnapshot(domain, safePayload);
+
+    if (payloadChanged(safePayload, row.payload)) {
+      const saved = await upsertRemoteDomain(session, domain, safePayload);
+      remoteUpdatedAt.set(domain, saved.updated_at);
+    } else {
+      remoteUpdatedAt.set(domain, row.updated_at);
+    }
+
     changed = true;
   }
 
@@ -515,7 +582,8 @@ export async function pushCloudDomain(
   domain: SyncDomain,
 ): Promise<void> {
   if (applyingRemote) return;
-  const row = await upsertRemoteDomain(session, domain, getDomainSnapshot(domain));
+  const payload = sanitizeDomainPayload(domain, getDomainSnapshot(domain));
+  const row = await upsertRemoteDomain(session, domain, payload);
   remoteUpdatedAt.set(domain, row.updated_at);
 }
 

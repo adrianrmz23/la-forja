@@ -2,6 +2,10 @@ import {
   exerciseCatalog,
   type ExerciseCatalogEntry,
 } from "../data/exerciseCatalog.ts";
+import {
+  DUMBBELL_CAMERA_EXERCISE_KEYS,
+  isAutomaticCameraExercise,
+} from "../data/automaticRoutinePolicy.ts";
 import type {
   RoutineBlock,
   RoutineExercise,
@@ -23,46 +27,26 @@ const FORBIDDEN_DETECTORS = new Set([
   "boxing-combination",
 ]);
 
-const ISOLATION_DUMBBELL_KEYS = new Set([
-  "biceps-curl",
-  "lateral-raise",
-  "front-raise",
-]);
-
 const GROUPS = {
   warmup: ["march", "step-jack", "calf-raise", "high-knees", "squat"],
-  legs: [
-    "squat",
-    "reverse-lunge",
-    "calf-raise",
-    "lateral-step-squat",
-    "squat-knee-drive",
-  ],
+  legs: ["squat", "reverse-lunge", "calf-raise"],
   arms: [
     "biceps-curl",
     "shoulder-press",
     "lateral-raise",
     "front-raise",
-    "march-press",
-    "step-jack-press",
-    "squat-to-press",
   ],
   cardio: [
     "high-knees",
     "jumping-jack",
     "step-jack",
-    "knee-to-elbow",
     "march",
-    "march-press",
-    "step-jack-press",
   ],
   compound: [
-    "squat-to-press",
-    "march-press",
-    "step-jack-press",
-    "squat-knee-drive",
-    "lateral-step-squat",
-    "knee-to-elbow",
+    "squat",
+    "reverse-lunge",
+    "biceps-curl",
+    "shoulder-press",
   ],
 } as const;
 
@@ -168,6 +152,10 @@ function intensitySettings(intensity: FreeWorkoutIntensity) {
 
 function getEligibleCatalog(preferences: FreeWorkoutPreferences) {
   return exerciseCatalog.filter((entry) => {
+    if (!isAutomaticCameraExercise(entry)) {
+      return false;
+    }
+
     if (FORBIDDEN_DETECTORS.has(entry.detector)) {
       return false;
     }
@@ -179,7 +167,10 @@ function getEligibleCatalog(preferences: FreeWorkoutPreferences) {
       return false;
     }
 
-    if (!preferences.hasDumbbells && ISOLATION_DUMBBELL_KEYS.has(entry.key)) {
+    if (
+      !preferences.hasDumbbells &&
+      DUMBBELL_CAMERA_EXERCISE_KEYS.has(entry.key)
+    ) {
       return false;
     }
 
@@ -394,6 +385,7 @@ function buildTemplates(
   targetMinutes: number,
   focus: FreeWorkoutFocus,
   intensity: FreeWorkoutIntensity,
+  hasDumbbells: boolean,
 ): MutableBlockTemplate[] {
   const shape = getShape(targetMinutes);
   const groups = focusGroups(focus);
@@ -436,7 +428,7 @@ function buildTemplates(
   templates.push(
     {
       id: "free-compound",
-      name: "Cadena del Forjador",
+      name: hasDumbbells ? "Fuerza simple con mancuernas" : "Fuerza simple",
       group: "compound",
       count: shape.compound,
       rounds: targetMinutes >= 35 ? 2 : 1,
@@ -714,6 +706,7 @@ export function generateFreeWorkout(
     targetMinutes,
     preferences.focus,
     preferences.intensity,
+    preferences.hasDumbbells,
   );
 
   const initialBlocks = templates
@@ -761,7 +754,7 @@ export function generateFreeWorkout(
   const routine: WorkoutRoutine = {
     id: `${id}-routine`,
     name: `Entrenamiento de ${targetMinutes} min`,
-    description: `Rutina libre de ${focusLabel[preferences.focus]}, creada completa antes de comenzar y adaptada al tiempo disponible.`,
+    description: `Rutina libre de ${focusLabel[preferences.focus]} con ejercicios sencillos, nombres claros y detección de cámara validada antes de comenzar.`,
     minimumCalories: 0,
     plannedCalories: estimatedCalories,
     estimatedMinutes,

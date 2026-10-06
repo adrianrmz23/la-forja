@@ -12,6 +12,7 @@ import type {
   FreeWorkoutPlan,
   FreeWorkoutPreferences,
 } from "../types/freeWorkout.ts";
+import { sanitizeFreeWorkoutPlan } from "../utils/routineSafety.ts";
 
 interface FreeWorkoutStore {
   activeWorkout: FreeWorkoutPlan | null;
@@ -114,7 +115,18 @@ export const useFreeWorkoutStore = create<FreeWorkoutStore>()(
     }),
     {
       name: "la-forja-free-workouts",
-      version: 1,
+      version: 2,
+      migrate: (persistedState: unknown) => {
+        const previous =
+          (persistedState ?? {}) as Partial<FreeWorkoutStore>;
+
+        return {
+          ...previous,
+          activeWorkout: sanitizeFreeWorkoutPlan(
+            previous.activeWorkout ?? null,
+          ),
+        } as FreeWorkoutStore;
+      },
     },
   ),
 );

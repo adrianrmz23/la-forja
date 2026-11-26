@@ -1,0 +1,19 @@
+.mission-loading-spin {
+  animation: mission-loading-spin 0.9s linear infinite;
+}
+
+.mission-loading-note {
+  margin: 10px 0 0;
+  color: #fdba74;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+@keyframes mission-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mission-loading-spin { animation: none; }
+}

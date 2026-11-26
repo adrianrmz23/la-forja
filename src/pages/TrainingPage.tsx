@@ -28,6 +28,7 @@ import { useProfileStore } from "../stores/profileStore.ts";
 import { useFreeWorkoutStore } from "../stores/freeWorkoutStore.ts";
 import { getFreeWorkoutReplacementOptions } from "../generators/freeWorkoutGenerator.ts";
 import { generateWorkoutWithAI } from "../services/aiWorkoutService.ts";
+import { usePrefetchBattle } from "../hooks/usePrefetchBattle.ts";
 import type { RoutineExercise } from "../types/routine.ts";
 import type { ProceduralDifficulty } from "../types/generatedLevel.ts";
 import {
@@ -336,6 +337,8 @@ function TrainingPage() {
   const generateWorkout = useFreeWorkoutStore((state) => state.generateWorkout);
   const replaceExercise = useFreeWorkoutStore((state) => state.replaceExercise);
   const setActiveWorkout = useFreeWorkoutStore((state) => state.setActiveWorkout);
+
+  usePrefetchBattle();
 
   const [targetMinutes, setTargetMinutes] = useState(
     activeWorkout?.targetMinutes ?? 30,

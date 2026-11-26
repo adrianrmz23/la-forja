@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Camera,
@@ -14,6 +14,9 @@ import {
   Target,
 } from "lucide-react";
 import { Link, useParams } from "react-router";
+import { LoaderCircle } from "lucide-react";
+import { usePrefetchBattle } from "../hooks/usePrefetchBattle.ts";
+import "./MissionLoading.css";
 import { useGeneratedLevelStore } from "../stores/generatedLevelStore.ts";
 import { resolveRoutineByLevelId } from "../utils/routineResolver.ts";
 import { useProfileStore } from "../stores/profileStore.ts";
@@ -57,6 +60,11 @@ function MissionPage() {
   );
 
   const profile = useProfileStore((state) => state.profile);
+
+  /* Descarga el combate y el detector mientras lees la misión. */
+  usePrefetchBattle();
+
+  const [isStarting, setIsStarting] = useState(false);
 
   const resolved = resolveRoutineByLevelId(
     levelId,
@@ -326,16 +334,34 @@ function MissionPage() {
 
             <Link
               className="mission-start-button"
-              onClick={() =>
+              aria-busy={isStarting}
+              onClick={() => {
+                setIsStarting(true);
                 setActiveLevel(
                   generatedLevel?.id ?? null,
-                )
-              }
+                );
+              }}
               to={`/battle/${resolved.levelId}`}
             >
-              Comenzar combate
-              <ChevronRight size={21} />
+              {isStarting ? (
+                <>
+                  Cargando combate…
+                  <LoaderCircle className="mission-loading-spin" size={21} />
+                </>
+              ) : (
+                <>
+                  Comenzar combate
+                  <ChevronRight size={21} />
+                </>
+              )}
             </Link>
+
+            {isStarting && (
+              <p className="mission-loading-note" role="status">
+                Descargando el combate y el detector de cámara. Con internet lento
+                puede tardar un poco.
+              </p>
+            )}
 
             <p className="mission-start-note">
               Al comenzar podrás activar la cámara y autorizar su uso.

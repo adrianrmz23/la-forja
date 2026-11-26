@@ -11,6 +11,7 @@ import {
   Swords,
 } from "lucide-react";
 import { Link } from "react-router";
+import { usePrefetchBattle } from "../hooks/usePrefetchBattle.ts";
 import { useGeneratedLevelStore } from "../stores/generatedLevelStore.ts";
 import { usePlayerStore } from "../stores/playerStore.ts";
 import { useProfileStore } from "../stores/profileStore.ts";
@@ -88,6 +89,8 @@ function MapPage() {
   };
 
   const staticFitted = getFittedRoutine(ashAssaultRoutine, calorieFit);
+
+  usePrefetchBattle();
 
   const levelProgress = getLevelProgress(experience);
 

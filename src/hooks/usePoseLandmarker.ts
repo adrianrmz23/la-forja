@@ -33,10 +33,10 @@ interface UsePoseLandmarkerOptions {
   ) => void;
 }
 
-const WASM_PATH =
+export const WASM_PATH =
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm";
 
-const MODEL_PATH =
+export const MODEL_PATH =
   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task";
 
 const MIN_VISIBILITY = 0.3;

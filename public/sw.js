@@ -1,7 +1,14 @@
-/* Service worker de La Forja: shell offline + caché del modelo de cámara. */
-const VERSION = "v1";
-const SHELL_CACHE = `forja-shell-${VERSION}`;
-const MODEL_CACHE = `forja-model-${VERSION}`;
+/* Service worker de La Forja: app completa offline + caché del modelo de cámara. */
+
+/* Estos dos valores los reemplaza el build (ver vite.config.ts). */
+const BUILD_ID = "__BUILD_ID__";
+const PRECACHE_URLS = "__PRECACHE_URLS__";
+
+const SHELL_PREFIX = "forja-shell-";
+const SHELL_CACHE = `${SHELL_PREFIX}${BUILD_ID}`;
+
+/* El modelo pesa ~20 MB: su caché sobrevive entre versiones de la app. */
+const MODEL_CACHE = "forja-model-v1";
 
 const SHELL_FILES = ["/", "/index.html", "/manifest.webmanifest", "/favicon.svg"];
 
@@ -16,11 +23,18 @@ function isMediaPipeAsset(url) {
 }
 
 self.addEventListener("install", (event) => {
+  const urls = [
+    ...SHELL_FILES,
+    ...(Array.isArray(PRECACHE_URLS) ? PRECACHE_URLS : []),
+  ];
+
   event.waitUntil(
     caches
       .open(SHELL_CACHE)
-      .then((cache) => cache.addAll(SHELL_FILES))
-      .catch(() => undefined)
+      /* Cada archivo por separado: si uno falla, los demás se guardan. */
+      .then((cache) =>
+        Promise.all(urls.map((url) => cache.add(url).catch(() => undefined))),
+      )
       .then(() => self.skipWaiting()),
   );
 });
@@ -32,13 +46,24 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => ![SHELL_CACHE, MODEL_CACHE].includes(key))
+            .filter(
+              (key) =>
+                key !== MODEL_CACHE &&
+                key !== SHELL_CACHE &&
+                (key.startsWith(SHELL_PREFIX) || key.startsWith("forja-model-")),
+            )
             .map((key) => caches.delete(key)),
         ),
       )
       .then(() => self.clients.claim()),
   );
 });
+
+/* Vercel responde index.html a rutas que no existen: eso nunca debe guardarse como JS o CSS. */
+function isCacheable(response) {
+  const type = response.headers.get("content-type") || "";
+  return response.ok && !type.includes("text/html");
+}
 
 async function cacheFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
@@ -50,7 +75,7 @@ async function cacheFirst(request, cacheName) {
 
   const response = await fetch(request);
 
-  if (response.ok) {
+  if (isCacheable(response)) {
     cache.put(request, response.clone());
   }
 

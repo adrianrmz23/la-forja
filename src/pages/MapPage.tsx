@@ -19,6 +19,9 @@ import type {
   LevelTheme,
 } from "../types/generatedLevel.ts";
 import { getLevelProgress } from "../utils/progression.ts";
+import { ashAssaultRoutine } from "../data/routines.ts";
+import { getFittedRoutine } from "../utils/routineResolver.ts";
+import { CAMPAIGN_MINIMUM_KCAL } from "../utils/routineCalories.ts";
 
 const STATIC_LEVEL_ID = "awakening";
 
@@ -75,9 +78,16 @@ function MapPage() {
     (state) => state.setActiveLevel,
   );
 
-  const ensureNextLevel = useGeneratedLevelStore(
-    (state) => state.ensureNextLevel,
+  const ensureCampaign = useGeneratedLevelStore(
+    (state) => state.ensureCampaign,
   );
+
+  const calorieFit = {
+    weightKg: profile.weightKg,
+    targetKcal: Math.max(CAMPAIGN_MINIMUM_KCAL, profile.minimumCalorieGoal),
+  };
+
+  const staticFitted = getFittedRoutine(ashAssaultRoutine, calorieFit);
 
   const levelProgress = getLevelProgress(experience);
 
@@ -92,41 +102,24 @@ function MapPage() {
   );
 
   /*
-   * Respaldo de seguridad: si la misión inicial ya se completó,
-   * el mapa garantiza que exista al menos el nivel procedural 02.
+   * La campaña completa existe desde el inicio: todas las misiones quedan
+   * visibles (bloqueadas hasta superar la anterior) y no se generan sobre la
+   * marcha. Se crean con semillas fijas, así que son siempre las mismas.
    */
   useEffect(() => {
-    if (
-      !staticLevelCompleted ||
-      generatedLevels.some(
-        (level) => level.sequence === 2,
-      )
-    ) {
-      return;
-    }
-
-    void ensureNextLevel({
-      afterSequence: 1,
+    ensureCampaign({
       difficulty: profile.fitnessLevel,
-      minimumCalories: profile.minimumCalorieGoal,
-      preferAI: true,
+      minimumCalories: Math.max(
+        CAMPAIGN_MINIMUM_KCAL,
+        profile.minimumCalorieGoal,
+      ),
       weightKg: profile.weightKg,
-      heightCm: profile.heightCm,
-      preferredImpact: profile.preferredImpact,
-      boxingStance: profile.boxingStance,
-    }).catch(() => {
-      /* El store ya intenta el respaldo procedural. */
     });
   }, [
-    ensureNextLevel,
-    generatedLevels,
-    profile.boxingStance,
+    ensureCampaign,
     profile.fitnessLevel,
-    profile.heightCm,
     profile.minimumCalorieGoal,
-    profile.preferredImpact,
     profile.weightKg,
-    staticLevelCompleted,
   ]);
 
   const completedGeneratedLevels =
@@ -254,7 +247,7 @@ function MapPage() {
               <div className="mission-card__details">
                 <span>
                   <Gauge size={16} />
-                  Rutina completa · 180+ kcal
+                  Rutina completa · ~{staticFitted.estimatedMinutes} min · {staticFitted.minimumCalories}+ kcal
                 </span>
 
                 <span>
@@ -293,6 +286,10 @@ function MapPage() {
 
           {orderedGeneratedLevels.map((level) => {
             const LevelIcon = themeIcons[level.theme];
+            const fittedRoutine = getFittedRoutine(
+              level.routine,
+              calorieFit,
+            );
             const { isCompleted, isLocked } =
               getGeneratedLevelStatus(
                 level,
@@ -345,8 +342,9 @@ function MapPage() {
                   <div className="mission-card__details">
                     <span>
                       <Gauge size={16} />
-                      {level.routine.blocks.length} bloques ·{" "}
-                      {level.routine.minimumCalories}+ kcal
+                      {fittedRoutine.blocks.length} bloques · ~
+                      {fittedRoutine.estimatedMinutes} min ·{" "}
+                      {fittedRoutine.minimumCalories}+ kcal
                     </span>
 
                     <span>

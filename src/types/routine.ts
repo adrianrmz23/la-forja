@@ -31,6 +31,7 @@ export type ExerciseDetector =
   | "lateral-raise"
   | "front-raise"
   | "movement-recipe"
+  | "plank"
   | "unavailable";
 
 export type BuiltInExerciseId =
@@ -58,7 +59,8 @@ export type BuiltInExerciseId =
   | "biceps-curl"
   | "shoulder-press"
   | "lateral-raise"
-  | "front-raise";
+  | "front-raise"
+  | "plank";
 
 export type ExerciseId =
   | BuiltInExerciseId
@@ -108,15 +110,6 @@ export interface RoutineBlock {
   exercises: RoutineExercise[];
 }
 
-export interface RoutineOverloadConfig {
-  id: string;
-  name: string;
-  description: string;
-  entryRestSeconds: number;
-  betweenRoundsRestSeconds: number;
-  exercises: RoutineExercise[];
-}
-
 export interface WorkoutRoutine {
   id: string;
   name: string;
@@ -125,5 +118,4 @@ export interface WorkoutRoutine {
   plannedCalories: number;
   estimatedMinutes: number;
   blocks: RoutineBlock[];
-  overload?: RoutineOverloadConfig;
 }

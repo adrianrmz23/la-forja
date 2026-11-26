@@ -12,8 +12,7 @@ import type {
 export type RoutineExerciseStage =
   | "warmup"
   | "main"
-  | "boss"
-  | "overload";
+  | "boss";
 
 export interface ExerciseTargetRange {
   minimum: number;
@@ -75,7 +74,7 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     estimatedSecondsPerRep: 1.8,
     baseRestSeconds: 12,
     themes: ["balanced", "cardio"],
-    stages: ["warmup", "main", "overload"],
+    stages: ["warmup", "main"],
     targets: {
       beginner: { minimum: 12, maximum: 20, step: 2 },
       intermediate: { minimum: 18, maximum: 28, step: 2 },
@@ -95,7 +94,7 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     estimatedSecondsPerRep: 0.8,
     baseRestSeconds: 18,
     themes: ["balanced", "cardio"],
-    stages: ["warmup", "main", "boss", "overload"],
+    stages: ["warmup", "main", "boss"],
     targets: {
       beginner: { minimum: 18, maximum: 30, step: 2 },
       intermediate: { minimum: 30, maximum: 46, step: 2 },
@@ -115,7 +114,7 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     estimatedSecondsPerRep: 1.3,
     baseRestSeconds: 18,
     themes: ["balanced", "cardio"],
-    stages: ["main", "boss", "overload"],
+    stages: ["main", "boss"],
     targets: {
       beginner: { minimum: 12, maximum: 22, step: 2 },
       intermediate: { minimum: 20, maximum: 34, step: 2 },
@@ -135,7 +134,7 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     estimatedSecondsPerRep: 3,
     baseRestSeconds: 20,
     themes: ["balanced", "strength", "cardio"],
-    stages: ["warmup", "main", "boss", "overload"],
+    stages: ["warmup", "main", "boss"],
     targets: {
       beginner: { minimum: 8, maximum: 12, step: 2 },
       intermediate: { minimum: 12, maximum: 18, step: 2 },
@@ -175,7 +174,7 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     estimatedSecondsPerRep: 2,
     baseRestSeconds: 14,
     themes: ["balanced", "strength"],
-    stages: ["warmup", "main", "overload"],
+    stages: ["warmup", "main"],
     targets: {
       beginner: { minimum: 12, maximum: 20, step: 2 },
       intermediate: { minimum: 18, maximum: 28, step: 2 },
@@ -195,11 +194,31 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     estimatedSecondsPerRep: 1.8,
     baseRestSeconds: 18,
     themes: ["balanced", "cardio"],
-    stages: ["main", "boss", "overload"],
+    stages: ["main", "boss"],
     targets: {
       beginner: { minimum: 10, maximum: 16, step: 2 },
       intermediate: { minimum: 16, maximum: 24, step: 2 },
       advanced: { minimum: 22, maximum: 32, step: 2 },
+    },
+  },
+  {
+    key: "plank",
+    exerciseId: "plank",
+    name: "Plancha de frente",
+    instructions:
+      "Pon el celular en el suelo frente a ti. Apóyate en antebrazos o manos con el cuerpo recto, abdomen firme y mirando a la cámara. Si es muy difícil, apoya las rodillas.",
+    mode: "active_duration",
+    countUnit: "step",
+    detector: "plank",
+    met: 4,
+    estimatedSecondsPerRep: 1,
+    baseRestSeconds: 20,
+    themes: ["balanced", "strength"],
+    stages: ["main", "boss"],
+    targets: {
+      beginner: { minimum: 15, maximum: 25, step: 5 },
+      intermediate: { minimum: 25, maximum: 40, step: 5 },
+      advanced: { minimum: 40, maximum: 60, step: 5 },
     },
   },
   {
@@ -236,7 +255,7 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     baseRestSeconds: 18,
     equipment: "optional-dumbbells",
     themes: ["balanced", "strength"],
-    stages: ["main", "boss", "overload"],
+    stages: ["main", "boss"],
     targets: {
       beginner: { minimum: 8, maximum: 12, step: 2 },
       intermediate: { minimum: 10, maximum: 16, step: 2 },
@@ -257,7 +276,7 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     baseRestSeconds: 20,
     equipment: "optional-dumbbells",
     themes: ["balanced", "strength"],
-    stages: ["main", "boss", "overload"],
+    stages: ["main", "boss"],
     targets: {
       beginner: { minimum: 6, maximum: 10, step: 2 },
       intermediate: { minimum: 8, maximum: 14, step: 2 },
@@ -278,7 +297,7 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     baseRestSeconds: 20,
     equipment: "optional-dumbbells",
     themes: ["balanced", "strength"],
-    stages: ["main", "overload"],
+    stages: ["main"],
     targets: {
       beginner: { minimum: 6, maximum: 10, step: 2 },
       intermediate: { minimum: 8, maximum: 14, step: 2 },
@@ -299,7 +318,7 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     baseRestSeconds: 20,
     equipment: "optional-dumbbells",
     themes: ["balanced", "strength"],
-    stages: ["main", "overload"],
+    stages: ["main"],
     targets: {
       beginner: { minimum: 6, maximum: 10, step: 2 },
       intermediate: { minimum: 8, maximum: 14, step: 2 },
@@ -382,7 +401,7 @@ export const exerciseCatalog: ExerciseCatalogEntry[] = [
     baseRestSeconds: 25,
     equipment: "optional-dumbbells",
     themes: ["balanced", "strength", "cardio"],
-    stages: ["main", "boss", "overload"],
+    stages: ["main", "boss"],
     targets: {
       beginner: { minimum: 5, maximum: 8, step: 1 },
       intermediate: { minimum: 8, maximum: 12, step: 1 },

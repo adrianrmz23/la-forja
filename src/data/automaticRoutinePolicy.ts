@@ -20,6 +20,8 @@ export const AUTOMATIC_CAMERA_EXERCISE_KEYS = new Set([
   "shoulder-press",
   "lateral-raise",
   "front-raise",
+  "knee-to-elbow",
+  "plank",
 ]);
 
 export const DUMBBELL_CAMERA_EXERCISE_KEYS = new Set([
@@ -34,6 +36,7 @@ export const SIMPLE_CARDIO_EXERCISE_KEYS = new Set([
   "step-jack",
   "high-knees",
   "jumping-jack",
+  "knee-to-elbow",
 ]);
 
 export const SIMPLE_LEG_EXERCISE_KEYS = new Set([

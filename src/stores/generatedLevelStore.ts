@@ -15,6 +15,9 @@ import { refreshGeneratedLevelWithSafeRoutine } from "../utils/routineSafety.ts"
 
 const MINIMUM_ROUTINE_CALORIES = 250;
 
+/** Misiones fijas de la campaña (la 1 es la inicial; el resto se crean aquí). */
+export const CAMPAIGN_LENGTH = 12;
+
 /*
  * Se conserva esta estructura para que BattlePage pueda seguir
  * enviando el rendimiento del usuario sin necesitar cambios.
@@ -66,6 +69,15 @@ export interface GeneratedLevelStore {
   ensureNextLevel: (
     options: EnsureNextLevelOptions,
   ) => Promise<GeneratedLevel>;
+
+  /**
+   * Crea de una vez todas las misiones de la campaña que falten, con
+   * semillas fijas (la misma campaña en cada instalación) y sin repetir
+   * ejercicios entre misiones vecinas.
+   */
+  ensureCampaign: (
+    options: GenerateNextLevelOptions & { count?: number },
+  ) => void;
 
   setActiveLevel: (levelId: string | null) => void;
   completeLevel: (levelId: string) => boolean;
@@ -265,6 +277,30 @@ export const useGeneratedLevelStore =
           );
 
           return generationPromise;
+        },
+
+        ensureCampaign({ count = CAMPAIGN_LENGTH, ...options }) {
+          let levels = get().levels;
+          let changed = false;
+
+          for (let sequence = 2; sequence <= count; sequence += 1) {
+            if (levels.some((level) => level.sequence === sequence)) {
+              continue;
+            }
+
+            const newLevel = createProceduralLevel(levels, sequence, {
+              ...options,
+              preferredTheme: undefined,
+              seed: `campaign-${sequence}`,
+            });
+
+            levels = insertLevel(levels, newLevel);
+            changed = true;
+          }
+
+          if (changed) {
+            set({ levels, generationError: null });
+          }
         },
 
         setActiveLevel(levelId) {

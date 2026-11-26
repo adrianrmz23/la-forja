@@ -165,7 +165,6 @@ function generateTarget(
     warmup: 0.7,
     main: 1,
     boss: 1.08,
-    overload: 0.9,
   };
 
   return roundToStep(
@@ -216,6 +215,7 @@ function selectUniqueExercises(
   const usable = candidates.filter(
     (candidate) =>
       isAutomaticCameraExercise(candidate) &&
+      candidate.mode !== "active_duration" &&
       !FORBIDDEN_PROCEDURAL_DETECTORS.has(candidate.detector),
   );
   const fresh = usable.filter(

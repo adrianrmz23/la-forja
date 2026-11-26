@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { Link } from "react-router";
+import { WeekStrip } from "../components/WeekStrip";
 import { usePlayerStore } from "../stores/playerStore";
 import { getLevelProgress } from "../utils/progression";
 import { useProfileStore } from "../stores/profileStore";
@@ -67,6 +68,8 @@ function HomePage() {
             </div>
           </div>
         </section>
+
+        <WeekStrip />
 
         <section className="home-actions">
           <Link className="button button--primary" to={isProfileComplete ? "/map" : "/profile"}>

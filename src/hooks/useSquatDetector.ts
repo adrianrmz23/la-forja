@@ -41,20 +41,27 @@ interface LegLandmarks {
   side: "left" | "right";
 }
 
-const MIN_VISIBILITY = 0.55;
+const MIN_VISIBILITY = 0.35;
 
 /*
  * Estos valores son iniciales.
  * Después los calibraremos con pruebas reales.
  */
-const STANDING_ANGLE = 160;
-const DESCENT_START_ANGLE = 145;
-const BOTTOM_ANGLE = 110;
-const ASCENT_START_ANGLE = 125;
+const STANDING_ANGLE = 152;
+const DESCENT_START_ANGLE = 142;
+const BOTTOM_ANGLE = 115;
+const ASCENT_START_ANGLE = 128;
 
-const MIN_REPETITION_DURATION = 700;
-const MAX_REPETITION_DURATION = 8000;
-const REPETITION_COOLDOWN = 500;
+/*
+ * Filtro anti media sentadilla: además del ángulo de la rodilla,
+ * la cadera debe haber bajado respecto a la rodilla.
+ * 1 = cadera muy por encima de la rodilla (de pie), 0 = paralelo.
+ */
+const MAX_BOTTOM_HIP_RATIO = 0.7;
+
+const MIN_REPETITION_DURATION = 450;
+const MAX_REPETITION_DURATION = 12000;
+const REPETITION_COOLDOWN = 350;
 
 const PHASE_LABELS: Record<
   SquatPhase,
@@ -368,6 +375,18 @@ export function useSquatDetector({
         );
       }
 
+      const thighLength = Math.max(
+        Math.hypot(
+          selectedLeg.hip.x - selectedLeg.knee.x,
+          selectedLeg.hip.y - selectedLeg.knee.y,
+        ),
+        0.01,
+      );
+
+      const hipRatio =
+        (selectedLeg.knee.y - selectedLeg.hip.y) /
+        thighLength;
+
       const currentPhase =
         phaseRef.current;
 
@@ -408,7 +427,8 @@ export function useSquatDetector({
             );
 
           if (
-            smoothedAngle <= BOTTOM_ANGLE
+            smoothedAngle <= BOTTOM_ANGLE &&
+            hipRatio <= MAX_BOTTOM_HIP_RATIO
           ) {
             updatePhase("bottom");
             break;
@@ -509,7 +529,7 @@ export function useSquatDetector({
               } else {
                 const quality: SquatQuality =
                   minimumAngleRef.current <=
-                  95
+                  105
                     ? "excellent"
                     : "good";
 

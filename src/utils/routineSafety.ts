@@ -52,7 +52,6 @@ export function routineUsesOnlySafeCameraExercises(
 ): boolean {
   const exercises = [
     ...routine.blocks.flatMap((block) => block.exercises),
-    ...(routine.overload?.exercises ?? []),
   ];
 
   return (

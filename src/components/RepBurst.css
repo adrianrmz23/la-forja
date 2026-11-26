@@ -1,0 +1,100 @@
+.rep-burst {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.rep-burst__ring {
+  position: absolute;
+  width: 140px;
+  height: 140px;
+  border: 3px solid rgba(251, 146, 60, 0.85);
+  border-radius: 50%;
+  animation: rep-burst-ring 0.7s ease-out forwards;
+}
+
+.rep-burst__pop {
+  position: absolute;
+  color: #fff7ed;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 4.5rem;
+  line-height: 1;
+  text-shadow: 0 0 22px rgba(249, 115, 22, 0.9), 0 4px 0 rgba(0, 0, 0, 0.35);
+  animation: rep-burst-pop 0.8s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+
+.rep-burst__combo {
+  position: absolute;
+  top: 22%;
+  display: grid;
+  justify-items: center;
+  animation: rep-burst-combo 1.5s ease-out forwards;
+}
+
+.rep-burst__combo strong {
+  color: #fbbf24;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 5rem;
+  line-height: 0.9;
+  text-shadow: 0 0 28px rgba(251, 191, 36, 0.8);
+}
+
+.rep-burst__combo span {
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+}
+
+.rep-burst__spark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fb923c;
+  box-shadow: 0 0 10px #f97316;
+  animation: rep-burst-spark 0.9s ease-out forwards;
+}
+
+@keyframes rep-burst-ring {
+  from { opacity: 0.9; transform: scale(0.4); }
+  to { opacity: 0; transform: scale(2.6); }
+}
+
+@keyframes rep-burst-pop {
+  0% { opacity: 0; transform: translateY(24px) scale(0.5); }
+  25% { opacity: 1; transform: translateY(-8px) scale(1.25); }
+  100% { opacity: 0; transform: translateY(-90px) scale(1); }
+}
+
+@keyframes rep-burst-combo {
+  0% { opacity: 0; transform: scale(0.4); }
+  18% { opacity: 1; transform: scale(1.15); }
+  30% { transform: scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-20px); }
+}
+
+@keyframes rep-burst-spark {
+  from { opacity: 1; transform: rotate(var(--angle)) translateX(0); }
+  to { opacity: 0; transform: rotate(var(--angle)) translateX(110px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rep-burst__ring,
+  .rep-burst__spark {
+    display: none;
+  }
+
+  .rep-burst__pop,
+  .rep-burst__combo {
+    animation-duration: 0.01s;
+    animation-delay: 1s;
+  }
+}

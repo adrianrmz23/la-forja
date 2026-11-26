@@ -1,31 +1,56 @@
+import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router";
 import QuickTrainingButton from "./components/QuickTrainingButton";
-import BattlePage from "./pages/BattlePage";
+import ErrorBoundary from "./components/ErrorBoundary";
 import HomePage from "./pages/HomePage";
-import MapPage from "./pages/MapPage";
-import MissionPage from "./pages/MissionPage";
-import MovementLabPage from "./pages/MovementLabPage";
-import OperationForjaPage from "./pages/OperationForjaPage";
-import ProfilePage from "./pages/ProfilePage";
-import ProgressPage from "./pages/ProgressPage";
-import AccountPage from "./pages/AccountPage";
-import TrainingPage from "./pages/TrainingPage";
+
+/* Cada página se descarga solo cuando se visita. */
+const BattlePage = lazy(() => import("./pages/BattlePage"));
+const MapPage = lazy(() => import("./pages/MapPage"));
+const MissionPage = lazy(() => import("./pages/MissionPage"));
+const MovementLabPage = lazy(() => import("./pages/MovementLabPage"));
+const OperationForjaPage = lazy(() => import("./pages/OperationForjaPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const ProgressPage = lazy(() => import("./pages/ProgressPage"));
+const AccountPage = lazy(() => import("./pages/AccountPage"));
+const TrainingPage = lazy(() => import("./pages/TrainingPage"));
+
+function PageLoading() {
+  return (
+    <div
+      aria-live="polite"
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        color: "#9ca3af",
+        background: "#0b0c0f",
+      }}
+    >
+      Cargando…
+    </div>
+  );
+}
 
 function App() {
   return (
     <>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/map" element={<MapPage />} />
-        <Route path="/training" element={<TrainingPage />} />
-        <Route path="/movement-lab" element={<MovementLabPage />} />
-        <Route path="/operation-forja" element={<OperationForjaPage />} />
-        <Route path="/progress" element={<ProgressPage />} />
-        <Route path="/account" element={<AccountPage />} />
-        <Route path="/mission/:levelId" element={<MissionPage />} />
-        <Route path="/battle/:levelId" element={<BattlePage />} />
-      </Routes>
+      <ErrorBoundary>
+        <Suspense fallback={<PageLoading />}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/map" element={<MapPage />} />
+            <Route path="/training" element={<TrainingPage />} />
+            <Route path="/movement-lab" element={<MovementLabPage />} />
+            <Route path="/operation-forja" element={<OperationForjaPage />} />
+            <Route path="/progress" element={<ProgressPage />} />
+            <Route path="/account" element={<AccountPage />} />
+            <Route path="/mission/:levelId" element={<MissionPage />} />
+            <Route path="/battle/:levelId" element={<BattlePage />} />
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
 
       <QuickTrainingButton />
     </>

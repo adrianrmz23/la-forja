@@ -41,12 +41,15 @@ const GROUPS = {
     "jumping-jack",
     "step-jack",
     "march",
+    "knee-to-elbow",
   ],
   compound: [
     "squat",
     "reverse-lunge",
     "biceps-curl",
     "shoulder-press",
+    "plank",
+    "knee-to-elbow",
   ],
 } as const;
 

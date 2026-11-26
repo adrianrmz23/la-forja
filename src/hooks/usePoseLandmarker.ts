@@ -20,6 +20,12 @@ interface UsePoseLandmarkerOptions {
   videoRef: RefObject<HTMLVideoElement | null>;
   isCameraActive: boolean;
 
+  /**
+   * "upper" exige solo cabeza, hombros y brazos (ejercicios de suelo como la
+   * plancha, donde los pies no caben en cuadro). Por defecto, cuerpo completo.
+   */
+  bodyMode?: "full" | "upper";
+
   onLandmarks?: (
     landmarks:
       | NormalizedLandmark[]
@@ -31,10 +37,13 @@ const WASM_PATH =
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm";
 
 const MODEL_PATH =
-  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task";
 
-const MIN_VISIBILITY = 0.5;
-const FRAME_MARGIN = 0.03;
+const MIN_VISIBILITY = 0.3;
+const FRAME_MARGIN = 0;
+
+/* Tolerancia antes de marcar el cuerpo como fuera de cuadro. */
+const BODY_VISIBLE_GRACE_MS = 900;
 
 function isReliableLandmark(
   landmark: NormalizedLandmark | undefined,
@@ -55,6 +64,44 @@ function isReliableLandmark(
     landmark.y <= 1 - FRAME_MARGIN;
 
   return isVisible && isInsideFrame;
+}
+
+function isUpperBodyVisible(
+  landmarks: NormalizedLandmark[],
+): boolean {
+  return (
+    isReliableLandmark(landmarks[0]) &&
+    isReliableLandmark(landmarks[11]) &&
+    isReliableLandmark(landmarks[12]) &&
+    (isReliableLandmark(landmarks[13]) ||
+      isReliableLandmark(landmarks[14]) ||
+      isReliableLandmark(landmarks[15]) ||
+      isReliableLandmark(landmarks[16]))
+  );
+}
+
+export type PoseFraming = "unknown" | "too_far" | "ok";
+
+/*
+ * Qué tanto ocupa el cuerpo del alto del cuadro (de la nariz a los tobillos).
+ * Si ocupa muy poco, el modelo pierde precisión: conviene acercarse.
+ */
+const MIN_BODY_FRAME_FRACTION = 0.45;
+
+function getFraming(landmarks: NormalizedLandmark[]): PoseFraming {
+  const nose = landmarks[0];
+  const ankles = [landmarks[27], landmarks[28]].filter(
+    (point): point is NormalizedLandmark =>
+      Boolean(point) && (point.visibility ?? 1) >= 0.3,
+  );
+
+  if (!nose || ankles.length === 0) {
+    return "unknown";
+  }
+
+  const bottom = Math.max(...ankles.map((point) => point.y));
+
+  return bottom - nose.y < MIN_BODY_FRAME_FRACTION ? "too_far" : "ok";
 }
 
 function isFullBodyVisible(
@@ -91,8 +138,15 @@ function isFullBodyVisible(
 export function usePoseLandmarker({
   videoRef,
   isCameraActive,
+  bodyMode = "full",
   onLandmarks,
 }: UsePoseLandmarkerOptions) {
+  const bodyModeRef = useRef(bodyMode);
+
+  useEffect(() => {
+    bodyModeRef.current = bodyMode;
+  }, [bodyMode]);
+
   const canvasRef =
     useRef<HTMLCanvasElement>(null);
 
@@ -103,6 +157,7 @@ export function usePoseLandmarker({
     useRef<number | null>(null);
 
   const lastVideoTimeRef = useRef(-1);
+  const lastBodyVisibleAtRef = useRef(0);
   const lastDetectionTimeRef = useRef(0);
 
   const onLandmarksRef =
@@ -134,6 +189,9 @@ useEffect(() => {
     setRawBodyVisible,
   ] = useState(false);
 
+  const [framing, setFraming] =
+    useState<PoseFraming>("unknown");
+
   /*
    * Cargar el modelo de MediaPipe una sola vez.
    */
@@ -161,9 +219,9 @@ useEffect(() => {
               runningMode: "VIDEO",
               numPoses: 1,
 
-              minPoseDetectionConfidence: 0.5,
-              minPosePresenceConfidence: 0.5,
-              minTrackingConfidence: 0.5,
+              minPoseDetectionConfidence: 0.35,
+              minPosePresenceConfidence: 0.35,
+              minTrackingConfidence: 0.35,
 
               outputSegmentationMasks: false,
             },
@@ -349,8 +407,30 @@ useEffect(() => {
               },
             );
 
+            setFraming(
+              bodyModeRef.current === "upper"
+                ? "ok"
+                : getFraming(landmarks),
+            );
+
+            const fullBody =
+              bodyModeRef.current === "upper"
+                ? isUpperBodyVisible(landmarks)
+                : isFullBodyVisible(landmarks);
+
+            if (fullBody) {
+              lastBodyVisibleAtRef.current = now;
+            }
+
+            /*
+             * Histéresis: perder el cuerpo uno o dos
+             * cuadros no debe pausar la rutina.
+             */
             setRawBodyVisible(
-              isFullBodyVisible(landmarks),
+              fullBody ||
+                now -
+                  lastBodyVisibleAtRef.current <
+                  BODY_VISIBLE_GRACE_MS,
             );
           },
         );
@@ -408,5 +488,6 @@ useEffect(() => {
     modelError,
     poseDetected,
     bodyVisible,
+    framing: poseDetected ? framing : ("unknown" as PoseFraming),
   };
 }

@@ -26,10 +26,13 @@ import { useStepJackPressDetector } from "./useStepJackPressDetector.ts";
 import { useSquatKneeDriveDetector } from "./useSquatKneeDriveDetector.ts";
 import { useLateralStepSquatDetector } from "./useLateralStepSquatDetector.ts";
 import { useMovementRecipeDetector } from "./useMovementRecipeDetector.ts";
+import { usePlankDetector } from "./usePlankDetector.ts";
 
 export type DetectedMovementKind = "repetition" | "combination";
 
 export interface DetectedMovement {
+  /** Repetición sumada a mano por el usuario: no cuenta como detección de la cámara. */
+  manual?: boolean;
   kind: DetectedMovementKind;
   detector: RoutineExercise["detector"];
   label: string;
@@ -492,6 +495,10 @@ export function useMovementDetectors({
     onValidRepetition: handleLateralStepSquatValid,
   });
 
+  const plank = usePlankDetector({
+    enabled: enabled && detector === "plank",
+  });
+
   const movementRecipe = useMovementRecipeDetector({
     enabled: enabled && detector === "movement-recipe",
     recipeId: currentExercise?.recipeId,
@@ -527,6 +534,7 @@ export function useMovementDetectors({
       squatKneeDrive.processLandmarks(landmarks);
       lateralStepSquat.processLandmarks(landmarks);
       movementRecipe.processLandmarks(landmarks);
+      plank.processLandmarks(landmarks);
     },
     [
       bicepsCurl,
@@ -544,6 +552,7 @@ export function useMovementDetectors({
       lunge,
       march,
       movementRecipe,
+      plank,
       marchPress,
       processSquatLandmarks,
       shoulderPress,
@@ -577,6 +586,7 @@ export function useMovementDetectors({
     squatKneeDrive.reset();
     lateralStepSquat.reset();
     movementRecipe.reset();
+    plank.reset();
   }, [
     bicepsCurl,
     combination,
@@ -588,6 +598,7 @@ export function useMovementDetectors({
     lunge,
     march,
     movementRecipe,
+    plank,
     resetSquatDetector,
     shoulderPress,
     calfRaise,
@@ -654,6 +665,8 @@ export function useMovementDetectors({
         return lateralStepSquat.isMovementActive;
       case "movement-recipe":
         return movementRecipe.isMovementActive;
+      case "plank":
+        return plank.isMovementActive;
       default:
         return false;
     }
@@ -915,6 +928,18 @@ export function useMovementDetectors({
       };
     }
 
+    if (detector === "plank") {
+      return {
+        phase: plank.phase,
+        phaseLabel: plank.phaseLabel,
+        instruction: plank.instruction,
+        primaryLabel: "Posición",
+        primaryValue: plank.phaseLabel,
+        secondaryLabel: "Torso / hombros",
+        secondaryValue: plank.torsoRatio === null ? "--" : `${plank.torsoRatio}x`,
+      };
+    }
+
     if (detector === "movement-recipe") {
       return {
         phase: movementRecipe.phase,
@@ -989,6 +1014,10 @@ export function useMovementDetectors({
     march.phase,
     march.phaseLabel,
     march.rightHipAngle,
+    plank.instruction,
+    plank.phase,
+    plank.phaseLabel,
+    plank.torsoRatio,
     movementRecipe.instruction,
     movementRecipe.phase,
     movementRecipe.phaseLabel,

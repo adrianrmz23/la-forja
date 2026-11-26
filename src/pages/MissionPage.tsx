@@ -16,6 +16,8 @@ import {
 import { Link, useParams } from "react-router";
 import { useGeneratedLevelStore } from "../stores/generatedLevelStore.ts";
 import { resolveRoutineByLevelId } from "../utils/routineResolver.ts";
+import { useProfileStore } from "../stores/profileStore.ts";
+import { CAMPAIGN_MINIMUM_KCAL } from "../utils/routineCalories.ts";
 
 const preparationSteps = [
   {
@@ -54,9 +56,15 @@ function MissionPage() {
     (state) => state.setActiveLevel,
   );
 
+  const profile = useProfileStore((state) => state.profile);
+
   const resolved = resolveRoutineByLevelId(
     levelId,
     generatedLevels,
+    {
+      weightKg: profile.weightKg,
+      targetKcal: Math.max(CAMPAIGN_MINIMUM_KCAL, profile.minimumCalorieGoal),
+    },
   );
 
   const { routine, generatedLevel } = resolved;
@@ -205,12 +213,14 @@ function MissionPage() {
               <div>
                 <span>OBJETIVO PRINCIPAL</span>
                 <h3>
-                  Completa {totalExerciseStages} etapas y supera{" "}
-                  {routine.minimumCalories} kcal
+                  Completa {totalExerciseStages} etapas y quema alrededor de{" "}
+                  {routine.plannedCalories} kcal
                 </h3>
                 <p>
                   Cada etapa avanza únicamente mediante movimientos válidos.
-                  La sobrecarga se activa si la meta calórica queda pendiente.
+                  La misión termina al completar todas las etapas; las calorías
+                  son una estimación según tu peso (rutina de unos{" "}
+                  {routine.estimatedMinutes} min).
                 </p>
               </div>
             </div>

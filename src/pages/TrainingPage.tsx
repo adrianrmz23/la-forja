@@ -29,6 +29,7 @@ import { useFreeWorkoutStore } from "../stores/freeWorkoutStore.ts";
 import { getFreeWorkoutReplacementOptions } from "../generators/freeWorkoutGenerator.ts";
 import { generateWorkoutWithAI } from "../services/aiWorkoutService.ts";
 import type { RoutineExercise } from "../types/routine.ts";
+import type { ProceduralDifficulty } from "../types/generatedLevel.ts";
 import {
   FREE_WORKOUT_LEVEL_ID,
   type FreeWorkoutFocus,
@@ -36,6 +37,16 @@ import {
 } from "../types/freeWorkout.ts";
 
 const TIME_PRESETS = [15, 20, 30, 45, 60] as const;
+
+const DIFFICULTY_OPTIONS: Array<{
+  value: ProceduralDifficulty;
+  label: string;
+  description: string;
+}> = [
+  { value: "beginner", label: "Principiante", description: "Menos repeticiones, ritmo cómodo" },
+  { value: "intermediate", label: "Intermedio", description: "Volumen medio, reto moderado" },
+  { value: "advanced", label: "Avanzado", description: "Más volumen y menos pausa" },
+];
 
 const INTENSITY_OPTIONS: Array<{
   value: FreeWorkoutIntensity;
@@ -333,6 +344,9 @@ function TrainingPage() {
   const [intensity, setIntensity] = useState<FreeWorkoutIntensity>(
     activeWorkout?.preferences.intensity ?? "normal",
   );
+  const [difficulty, setDifficulty] = useState<ProceduralDifficulty>(
+    activeWorkout?.preferences.difficulty ?? profile.fitnessLevel,
+  );
   const [focus, setFocus] = useState<FreeWorkoutFocus>(
     activeWorkout?.preferences.focus ?? "full-body",
   );
@@ -472,7 +486,7 @@ function TrainingPage() {
       intensity,
       focus,
       hasDumbbells,
-      difficulty: profile.fitnessLevel,
+      difficulty,
       preferredImpact: profile.preferredImpact,
       weightKg: profile.weightKg,
     };
@@ -618,6 +632,30 @@ function TrainingPage() {
                   <span>{option.label}</span>
                   <small>{option.description}</small>
                   {intensity === option.value && <Check size={17} />}
+                </button>
+              ))}
+            </div>
+
+            <div className="training-section-heading training-section-heading--compact">
+              <div>
+                <h2>Dificultad</h2>
+                <p>Cambia cuántas repeticiones y qué tan exigente es cada bloque.</p>
+              </div>
+            </div>
+
+            <div className="training-choice-grid training-choice-grid--three">
+              {DIFFICULTY_OPTIONS.map((option) => (
+                <button
+                  className={`training-choice ${
+                    difficulty === option.value ? "training-choice--active" : ""
+                  }`}
+                  key={option.value}
+                  onClick={() => setDifficulty(option.value)}
+                  type="button"
+                >
+                  <span>{option.label}</span>
+                  <small>{option.description}</small>
+                  {difficulty === option.value && <Check size={17} />}
                 </button>
               ))}
             </div>

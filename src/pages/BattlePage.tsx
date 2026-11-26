@@ -32,12 +32,18 @@ import { usePlayerStore } from "../stores/playerStore.ts";
 import { useProfileStore } from "../stores/profileStore.ts";
 import { useGeneratedLevelStore } from "../stores/generatedLevelStore.ts";
 import { MovementDemo } from "../components/MovementDemo.tsx";
+import { RepBurst } from "../components/RepBurst.tsx";
+import { CAMPAIGN_MINIMUM_KCAL } from "../utils/routineCalories.ts";
+import { VictoryComparison } from "../components/VictoryComparison.tsx";
+import { DetectionRescue } from "../components/DetectionRescue.tsx";
 import { useFreeWorkoutStore } from "../stores/freeWorkoutStore.ts";
 import { useExerciseIntelligenceStore } from "../stores/exerciseIntelligenceStore.ts";
 import { FREE_WORKOUT_LEVEL_ID } from "../types/freeWorkout.ts";
 
 import { useCamera } from "../hooks/useCamera.ts";
 import { usePoseLandmarker } from "../hooks/usePoseLandmarker.ts";
+import { useWakeLock } from "../hooks/useWakeLock.ts";
+import { vibrate } from "../utils/haptics.ts";
 import { useWorkoutMetrics } from "../hooks/useWorkoutMetrics.ts";
 import type { SquatInvalidReason } from "../hooks/useSquatDetector.ts";
 import {
@@ -157,7 +163,7 @@ function BattlePage() {
 
   const [invalidRepetitions, setInvalidRepetitions] = useState(0);
 
-  const [, setCombo] = useState(0);
+  const [combo, setCombo] = useState(0);
 
   const [bestCombo, setBestCombo] = useState(0);
 
@@ -224,6 +230,8 @@ function BattlePage() {
       if (!audioEnabled) {
         return;
       }
+
+      vibrate(sound);
 
       const context = unlockAudio();
 
@@ -353,6 +361,10 @@ function BattlePage() {
   const campaignResolution = resolveRoutineByLevelId(
     isFreeWorkout ? STATIC_LEVEL_ID : routeLevelId,
     generatedLevels,
+    {
+      weightKg: profile.weightKg,
+      targetKcal: Math.max(CAMPAIGN_MINIMUM_KCAL, profile.minimumCalorieGoal),
+    },
   );
 
   const resolvedLevelId = isFreeWorkout
@@ -426,9 +438,6 @@ function BattlePage() {
     currentMet,
 
     isComplete: battleWon,
-    isAwaitingCalorieCheck,
-    isOverload,
-    overloadRound,
     isRestWaitingForReady,
     restReadyCountdown,
 
@@ -436,7 +445,7 @@ function BattlePage() {
 
     registerCombination: registerRoutineCombination,
 
-    resolveCalorieGoal,
+    currentStepIndex,
     skipCurrentStep,
     resetRoutine,
   } = useRoutineEngine({
@@ -447,8 +456,6 @@ function BattlePage() {
     restReadyCountdownSeconds: 3,
 
     onStepComplete: handleRoutineStepComplete,
-
-    onOverloadRoundStart: handleOverloadRoundStart,
 
     onComplete: handleRoutineComplete,
   });
@@ -467,7 +474,6 @@ function BattlePage() {
       cameraStatus === "active" &&
       sessionStatus === "active" &&
       currentStep?.kind === "exercise" &&
-      !isAwaitingCalorieCheck &&
       !battleWon,
 
     currentExercise,
@@ -480,12 +486,22 @@ function BattlePage() {
   /*
    * Análisis corporal con MediaPipe.
    */
-  const { canvasRef, modelStatus, modelError, poseDetected, bodyVisible } =
-    usePoseLandmarker({
+  const {
+    canvasRef,
+    modelStatus,
+    modelError,
+    poseDetected,
+    bodyVisible,
+    framing,
+  } = usePoseLandmarker({
       videoRef,
       isCameraActive: cameraStatus === "active",
+      bodyMode: currentExercise?.detector === "plank" ? "upper" : "full",
       onLandmarks: processPoseLandmarks,
     });
+
+  /* Evita que la pantalla se apague con el celular apoyado sin tocarlo. */
+  useWakeLock(cameraStatus === "active" && sessionStatus !== "finished");
 
   const movementActive =
     sessionStatus === "active" &&
@@ -563,17 +579,12 @@ function BattlePage() {
 
   const enemyHealthPercentage = (enemyHealth / MAX_ENEMY_HEALTH) * 100;
 
-  const currentStepTitle = isAwaitingCalorieCheck
-    ? "Evaluando objetivo calórico"
-    : currentStep?.kind === "rest"
+  const currentStepTitle =
+    currentStep?.kind === "rest"
       ? "Descanso"
       : (currentExercise?.name ?? "Rutina completada");
 
   const currentStepProgressText = (() => {
-    if (isAwaitingCalorieCheck) {
-      return `${estimatedCalories.toFixed(1)} / ${calorieGoal} kcal`;
-    }
-
     if (currentStep?.kind === "rest") {
       if (restReadyCountdown !== null) {
         return `Comienza en ${restReadyCountdown}`;
@@ -605,9 +616,7 @@ function BattlePage() {
     return `${currentValue} / ${currentTarget} ${unitLabels[countUnit]}`;
   })();
 
-  const displayedStepProgress = isAwaitingCalorieCheck
-    ? calorieProgress
-    : currentStepProgress;
+  const displayedStepProgress = currentStepProgress;
 
   /*
    * En pantallas móviles, cuando la cámara está activa,
@@ -638,10 +647,6 @@ function BattlePage() {
 
     if (sessionStatus === "countdown") {
       return "Prepárate";
-    }
-
-    if (isAwaitingCalorieCheck) {
-      return "Evaluando meta calórica";
     }
 
     if (currentStep?.kind === "rest") {
@@ -693,17 +698,11 @@ function BattlePage() {
     return currentStepProgressText;
   })();
 
-  const mobileNextLabel = isAwaitingCalorieCheck
-    ? estimatedCalories >= calorieGoal
-      ? "Victoria"
-      : "Sobrecarga automática"
-    : nextExercise
-      ? `${nextExercise.name}${nextExerciseGoal ? ` · ${nextExerciseGoal}` : ""}`
-      : "Completar rutina";
+  const mobileNextLabel = nextExercise
+    ? `${nextExercise.name}${nextExerciseGoal ? ` · ${nextExerciseGoal}` : ""}`
+    : "Completar rutina";
 
-  const mobileRoundLabel = isOverload
-    ? `Extra ${overloadRound}`
-    : `${currentRound}/${totalRounds}`;
+  const mobileRoundLabel = `${currentRound}/${totalRounds}`;
 
 
   const mobileCounter = (() => {
@@ -725,13 +724,6 @@ function BattlePage() {
       return {
         value: "PAUSA",
         unit: "PROGRESO GUARDADO",
-      };
-    }
-
-    if (isAwaitingCalorieCheck) {
-      return {
-        value: `${estimatedCalories.toFixed(0)} / ${calorieGoal}`,
-        unit: "KCAL",
       };
     }
 
@@ -786,12 +778,6 @@ function BattlePage() {
       return "MANTENTE QUIETO Y LISTO";
     }
 
-    if (isAwaitingCalorieCheck) {
-      return estimatedCalories >= calorieGoal
-        ? "OBJETIVO ALCANZADO"
-        : "PREPARANDO SOBRECARGA";
-    }
-
     if (currentStep?.kind === "rest") {
       if (isRestReturnWindow) {
         return playerReady
@@ -843,7 +829,6 @@ function BattlePage() {
     if (
       sessionStatus !== "active" ||
       !currentStep ||
-      isAwaitingCalorieCheck ||
       battleWon
     ) {
       return;
@@ -872,7 +857,6 @@ function BattlePage() {
   }, [
     battleWon,
     currentStep,
-    isAwaitingCalorieCheck,
     nextExercise?.name,
     sessionStatus,
     speakMessage,
@@ -882,7 +866,6 @@ function BattlePage() {
     if (
       sessionStatus !== "active" ||
       currentStep?.kind !== "exercise" ||
-      isAwaitingCalorieCheck ||
       battleWon
     ) {
       return;
@@ -912,7 +895,6 @@ function BattlePage() {
     currentStep,
     currentTarget,
     currentValue,
-    isAwaitingCalorieCheck,
     sessionStatus,
     speakMessage,
   ]);
@@ -961,50 +943,6 @@ function BattlePage() {
     restReadyCountdown,
     sessionStatus,
     speakMessage,
-  ]);
-
-  useEffect(() => {
-    if (!isAwaitingCalorieCheck || battleWon) {
-      return;
-    }
-
-    speakMessage(
-      estimatedCalories >= calorieGoal
-        ? "Objetivo calórico alcanzado."
-        : "Preparando una ronda de sobrecarga.",
-      true,
-    );
-  }, [
-    battleWon,
-    calorieGoal,
-    estimatedCalories,
-    isAwaitingCalorieCheck,
-    speakMessage,
-  ]);
-
-  /*
-   * Al terminar la rutina principal o una ronda de
-   * sobrecarga, esperamos un instante para estabilizar
-   * el cálculo y decidimos si hay victoria o una ronda extra.
-   */
-  useEffect(() => {
-    if (!isAwaitingCalorieCheck || battleWon) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      resolveCalorieGoal();
-    }, 800);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [
-    battleWon,
-    calorieGoal,
-    estimatedCalories,
-    isAwaitingCalorieCheck,
-    resolveCalorieGoal,
   ]);
 
   /*
@@ -1146,7 +1084,6 @@ function BattlePage() {
   useEffect(() => {
     if (
       sessionStatus !== "active" ||
-      isAwaitingCalorieCheck ||
       currentStep?.kind === "rest" ||
       cameraStatus !== "active" ||
       bodyVisible ||
@@ -1179,7 +1116,6 @@ function BattlePage() {
     bodyVisible,
     cameraStatus,
     currentStep?.kind,
-    isAwaitingCalorieCheck,
     resetMovementDetectors,
     sessionStatus,
   ]);
@@ -1368,6 +1304,20 @@ function BattlePage() {
       };
     }
 
+    if (
+      framing === "too_far" &&
+      (sessionStatus === "positioning" || sessionStatus === "active")
+    ) {
+      return {
+        title: "Acércate un poco",
+
+        message:
+          "Estás muy lejos: la cámara detecta mejor si ocupas más del encuadre.",
+
+        tone: "warning",
+      };
+    }
+
     if (sessionStatus === "positioning") {
       return {
         title: "Posición detectada",
@@ -1382,17 +1332,6 @@ function BattlePage() {
     }
 
     if (sessionStatus === "active") {
-      if (isAwaitingCalorieCheck) {
-        return {
-          title: "Evaluando la Forja",
-          message:
-            estimatedCalories >= calorieGoal
-              ? "Meta alcanzada. Confirmando la victoria."
-              : "La meta aún no se alcanza. Preparando sobrecarga automática.",
-          tone: "ready",
-        };
-      }
-
       return {
         title: currentExercise?.name ?? "Rutina activa",
 
@@ -1457,7 +1396,6 @@ function BattlePage() {
   function handleManualPause() {
     if (
       sessionStatus !== "active" ||
-      isAwaitingCalorieCheck ||
       battleWon
     ) {
       return;
@@ -1563,23 +1501,6 @@ function BattlePage() {
     switchCamera();
   }
 
-  function handleOverloadRoundStart(round: number) {
-    speakMessage(`Sobrecarga ${round}. Continúa con movimientos válidos.`, true);
-    playFeedbackSound("complete");
-
-    setFeedback({
-      label: `Sobrecarga ${round}`,
-
-      message:
-        "La meta calórica todavía no se alcanza. Completa esta ronda adicional con movimientos válidos.",
-
-      tone: "excellent",
-    });
-
-    setDamageAmount(4);
-    setImpactKey((current) => current + 1);
-  }
-
   /*
    * Se ejecuta al completar un ejercicio,
    * no al terminar toda la rutina.
@@ -1595,15 +1516,9 @@ function BattlePage() {
     }
 
     setFeedback({
-      label:
-        step.stage === "overload"
-          ? "Ejercicio de sobrecarga completado"
-          : "Ejercicio completado",
+      label: "Ejercicio completado",
 
-      message:
-        step.stage === "overload"
-          ? `${step.exercise.name} superado. Continúa hasta alcanzar ${calorieGoal} kcal.`
-          : `${step.exercise.name} superado. Prepárate para el siguiente desafío.`,
+      message: `${step.exercise.name} superado. Prepárate para el siguiente desafío.`,
 
       tone: "excellent",
     });
@@ -1726,9 +1641,18 @@ function BattlePage() {
       return;
     }
 
-    useExerciseIntelligenceStore
-      .getState()
-      .recordDetected(currentExercise.sourceKey ?? String(currentExercise.exerciseId));
+    /*
+     * Una repetición sumada a mano no cuenta como acierto del detector;
+     * se anota como fallo para que el sistema sepa qué ejercicio falla.
+     */
+    const exerciseStatsKey =
+      currentExercise.sourceKey ?? String(currentExercise.exerciseId);
+
+    if (movement.manual) {
+      useExerciseIntelligenceStore.getState().recordInvalid(exerciseStatsKey);
+    } else {
+      useExerciseIntelligenceStore.getState().recordDetected(exerciseStatsKey);
+    }
 
     validRepetitionsRef.current += 1;
     setRepetitions(validRepetitionsRef.current);
@@ -1748,6 +1672,22 @@ function BattlePage() {
     setDamageAmount(movement.damage);
     setImpactKey((current) => current + 1);
     playFeedbackSound("success");
+  }
+
+  function addManualRepetition() {
+    if (!currentExercise) {
+      return;
+    }
+
+    registerDetectedMovement({
+      manual: true,
+      kind:
+        currentExercise.mode === "combinations" ? "combination" : "repetition",
+      detector: currentExercise.detector,
+      label: "Repetición manual",
+      message: "Sumaste la repetición a mano.",
+      damage: 1,
+    });
   }
 
   function simulateCurrentMovement() {
@@ -1884,6 +1824,25 @@ function BattlePage() {
     <main
       className={`battle-page ${mobileTrainingClassName}`}
     >
+      <DetectionRescue
+        key={`${currentStepIndex}-${impactKey}-${sessionStatus}`}
+        active={
+          sessionStatus === "active" &&
+          currentStep?.kind === "exercise" &&
+          currentExercise?.mode !== "active_duration" &&
+          !battleWon
+        }
+        onManualRepetition={addManualRepetition}
+        onSkip={skipCurrentStep}
+      />
+
+      <RepBurst
+        trigger={impactKey}
+        combo={combo}
+        repetitions={repetitions}
+        active={sessionStatus === "active" && !battleWon}
+      />
+
       <div className="battle-page__glow battle-page__glow--left" />
       <div className="battle-page__glow battle-page__glow--right" />
 
@@ -1906,11 +1865,9 @@ function BattlePage() {
               <span>
                 {isFreeWorkout
                   ? "ENTRENAMIENTO LIBRE"
-                  : isOverload
-                    ? `SOBRECARGA ${overloadRound}`
-                    : `NIVEL ${missionSequence
-                        .toString()
-                        .padStart(2, "0")}`}
+                  : `NIVEL ${missionSequence
+                      .toString()
+                      .padStart(2, "0")}`}
               </span>
 
               <strong>{missionName}</strong>
@@ -2070,9 +2027,7 @@ function BattlePage() {
                       <div className="mobile-training-current__heading">
                         <div>
                           <span>
-                            {isOverload
-                              ? `SOBRECARGA ${overloadRound}`
-                              : currentBlockName || "ENTRENAMIENTO"}
+                            {currentBlockName || "ENTRENAMIENTO"}
                           </span>
 
                           <h2>{mobileStageTitle}</h2>
@@ -2166,8 +2121,7 @@ function BattlePage() {
                             )}
                           </button>
 
-                          {sessionStatus === "active" &&
-                            !isAwaitingCalorieCheck && (
+                          {sessionStatus === "active" && (
                               <button
                                 className="mobile-training-action"
                                 onClick={handleManualPause}
@@ -2529,12 +2483,8 @@ function BattlePage() {
                 <span>RONDA ACTUAL</span>
 
                 <strong>
-                  {isOverload
-                    ? `Extra ${overloadRound}`
-                    : currentRound}
-                  {!isOverload && (
-                    <small>/{totalRounds}</small>
-                  )}
+                  {currentRound}
+                  <small>/{totalRounds}</small>
                 </strong>
               </div>
 
@@ -2565,71 +2515,33 @@ function BattlePage() {
             </div>
           </div>
 
-          {(isOverload || isAwaitingCalorieCheck) && (
-            <div className="overload-status">
-              <Flame size={22} />
-
-              <div>
-                <span>
-                  {isAwaitingCalorieCheck
-                    ? "EVALUANDO META"
-                    : `SOBRECARGA AUTOMÁTICA · RONDA ${overloadRound}`}
-                </span>
-
-                <strong>
-                  {isAwaitingCalorieCheck
-                    ? estimatedCalories >= calorieGoal
-                      ? "Objetivo alcanzado. Confirmando victoria…"
-                      : "Preparando una ronda adicional…"
-                    : `Continúa hasta alcanzar al menos ${calorieGoal} kcal`}
-                </strong>
-              </div>
-            </div>
-          )}
-
           <div className="routine-current-status">
             <div>
               <span>BLOQUE ACTUAL</span>
 
-              <strong>
-                {isAwaitingCalorieCheck
-                  ? "Evaluando objetivo calórico"
-                  : currentBlockName || "Rutina completada"}
-              </strong>
+              <strong>{currentBlockName || "Rutina completada"}</strong>
             </div>
 
             <div>
               <span>RONDA</span>
 
-              <strong>
-                {isOverload
-                  ? `Extra ${overloadRound}`
-                  : `${currentRound} / ${totalRounds}`}
-              </strong>
+              <strong>{`${currentRound} / ${totalRounds}`}</strong>
             </div>
 
             <div>
               <span>EJERCICIO ACTUAL</span>
 
               <strong>
-                {isAwaitingCalorieCheck
-                  ? "Evaluando calorías"
-                  : currentStep?.kind === "rest"
-                    ? "Descanso"
-                    : (currentExercise?.name ?? "--")}
+                {currentStep?.kind === "rest"
+                  ? "Descanso"
+                  : (currentExercise?.name ?? "--")}
               </strong>
             </div>
 
             <div>
               <span>SIGUIENTE</span>
 
-              <strong>
-                {isAwaitingCalorieCheck
-                  ? estimatedCalories >= calorieGoal
-                    ? "Victoria"
-                    : "Sobrecarga automática"
-                  : nextExercise?.name ?? "Completar rutina"}
-              </strong>
+              <strong>{nextExercise?.name ?? "Completar rutina"}</strong>
             </div>
           </div>
 
@@ -2733,19 +2645,15 @@ function BattlePage() {
                 <span className="battle-session-message__dot" />
 
                 <span>
-                  {isAwaitingCalorieCheck
-                    ? estimatedCalories >= calorieGoal
-                      ? "Meta alcanzada: confirmando victoria"
-                      : "Meta pendiente: preparando sobrecarga automática"
-                    : currentStep?.kind === "rest"
-                      ? `Descanso: ${remainingSeconds ?? 0} segundos`
-                      : movementActive
-                        ? `Movimiento activo: ${currentExercise?.name ?? "--"}`
-                        : `Esperando movimiento válido: ${currentExercise?.name ?? "--"}`}
+                  {currentStep?.kind === "rest"
+                    ? `Descanso: ${remainingSeconds ?? 0} segundos`
+                    : movementActive
+                      ? `Movimiento activo: ${currentExercise?.name ?? "--"}`
+                      : `Esperando movimiento válido: ${currentExercise?.name ?? "--"}`}
                 </span>
               </div>
 
-              {!isAwaitingCalorieCheck && (
+              {(
                 <button
                   className="battle-session-pause-button"
                   onClick={handleManualPause}
@@ -2785,8 +2693,7 @@ function BattlePage() {
           )}
 
           {import.meta.env.DEV &&
-            sessionStatus === "active" &&
-            !isAwaitingCalorieCheck && (
+            sessionStatus === "active" && (
             <div className="battle-actions battle-actions--development">
               {currentStep?.kind === "exercise" && currentExercise && (
                 <button
@@ -2905,6 +2812,13 @@ function BattlePage() {
                 <strong>{estimatedCalories.toFixed(1)} kcal</strong>
               </div>
             </div>
+
+            <VictoryComparison
+              estimatedCalories={estimatedCalories}
+              isFreeWorkout={isFreeWorkout}
+              missionId={resolvedLevelId}
+              repetitions={repetitions}
+            />
 
             <div className="victory-rewards">
               {isFreeWorkout ? (

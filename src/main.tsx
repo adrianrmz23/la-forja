@@ -5,9 +5,19 @@ import "./index.css";
 import App from "./App";
 import { CloudAuthGate } from "./components/CloudAuthGate";
 import { CloudSyncProvider } from "./providers/CloudSyncProvider";
+import ErrorBoundary from "./components/ErrorBoundary";
+
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch((error) => {
+      console.warn("No se pudo registrar el service worker:", error);
+    });
+  });
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
+    <ErrorBoundary>
     <CloudSyncProvider>
       <CloudAuthGate>
         <BrowserRouter>
@@ -15,5 +25,6 @@ createRoot(document.getElementById("root")!).render(
         </BrowserRouter>
       </CloudAuthGate>
     </CloudSyncProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );

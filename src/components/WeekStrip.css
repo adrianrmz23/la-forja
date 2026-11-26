@@ -1,0 +1,87 @@
+.week-strip {
+  width: min(100%, 560px);
+  margin: 18px auto 0;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.week-strip header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.week-strip header span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #fb923c;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.week-strip header strong {
+  color: #fbbf24;
+  font-size: 0.85rem;
+}
+
+.week-strip ol {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.week-strip__day {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: #8e949e;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.week-strip__day i {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  color: #0b0c0f;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.week-strip__day--done i {
+  border-color: transparent;
+  background: linear-gradient(135deg, #fbbf24, #f97316);
+  animation: week-strip-pop 0.4s ease-out;
+}
+
+.week-strip__day--today span {
+  color: #fff;
+}
+
+.week-strip__day--today i {
+  box-shadow: 0 0 0 2px #fb923c;
+}
+
+.week-strip__day--future {
+  opacity: 0.45;
+}
+
+@keyframes week-strip-pop {
+  from { transform: scale(0.6); }
+  60% { transform: scale(1.15); }
+  to { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .week-strip__day--done i { animation: none; }
+}

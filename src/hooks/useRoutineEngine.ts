@@ -11,14 +11,7 @@ import type {
   WorkoutRoutine,
 } from "../types/routine.ts";
 
-export type RoutineStage = "base" | "overload";
-
-interface RoutineStepMetadata {
-  stage: RoutineStage;
-  overloadRound: number | null;
-}
-
-export interface ExerciseRoutineStep extends RoutineStepMetadata {
+export interface ExerciseRoutineStep {
   kind: "exercise";
   key: string;
   blockId: string;
@@ -28,7 +21,7 @@ export interface ExerciseRoutineStep extends RoutineStepMetadata {
   exercise: RoutineExercise;
 }
 
-export interface RestRoutineStep extends RoutineStepMetadata {
+export interface RestRoutineStep {
   kind: "rest";
   key: string;
   blockId: string;
@@ -57,7 +50,6 @@ interface UseRoutineEngineOptions {
   restReadyCountdownSeconds?: number;
 
   onStepComplete?: (step: ExerciseRoutineStep) => void;
-  onOverloadRoundStart?: (round: number) => void;
   onComplete?: () => void;
 }
 
@@ -75,8 +67,6 @@ function buildBaseRoutineSteps(routine: WorkoutRoutine): RoutineStep[] {
           round,
           totalRounds: block.rounds,
           exercise,
-          stage: "base",
-          overloadRound: null,
         });
       });
     }
@@ -105,8 +95,6 @@ function buildBaseRoutineSteps(routine: WorkoutRoutine): RoutineStep[] {
       totalRounds: exerciseStep.totalRounds,
       duration: exerciseStep.exercise.restSeconds,
       nextExerciseName: nextExercise.exercise.name,
-      stage: "base",
-      overloadRound: null,
     });
   });
 
@@ -131,9 +119,6 @@ export function useRoutineEngine({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [currentCount, setCurrentCount] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
-  const [isAwaitingCalorieCheck, setIsAwaitingCalorieCheck] =
-    useState(false);
-  const [overloadRound, setOverloadRound] = useState(0);
   const [isRestWaitingForReady, setIsRestWaitingForReady] =
     useState(false);
   const [restReadyCountdown, setRestReadyCountdown] =
@@ -144,8 +129,6 @@ export function useRoutineEngine({
   const elapsedSecondsRef = useRef(0);
   const currentCountRef = useRef(0);
   const completeRef = useRef(false);
-  const awaitingCalorieCheckRef = useRef(false);
-  const overloadRoundRef = useRef(0);
   const restWaitingRef = useRef(false);
   const restReadyCountdownRef = useRef<number | null>(null);
   const canCompleteRestRef = useRef(canCompleteRest);
@@ -173,9 +156,7 @@ export function useRoutineEngine({
     }
 
     completeRef.current = true;
-    awaitingCalorieCheckRef.current = false;
 
-    setIsAwaitingCalorieCheck(false);
     setIsComplete(true);
 
     onCompleteRef.current?.();
@@ -185,11 +166,7 @@ export function useRoutineEngine({
     const availableSteps = stepsRef.current;
     const completedStep = availableSteps[currentStepIndexRef.current];
 
-    if (
-      !completedStep ||
-      completeRef.current ||
-      awaitingCalorieCheckRef.current
-    ) {
+    if (!completedStep || completeRef.current) {
       return;
     }
 
@@ -234,7 +211,6 @@ export function useRoutineEngine({
     if (
       !isRunning ||
       isComplete ||
-      isAwaitingCalorieCheck ||
       !currentStep
     ) {
       return;
@@ -286,7 +262,6 @@ export function useRoutineEngine({
   }, [
     completeCurrentStep,
     currentStep,
-    isAwaitingCalorieCheck,
     isComplete,
     isRunning,
   ]);
@@ -299,7 +274,6 @@ export function useRoutineEngine({
     if (
       !isRunning ||
       isComplete ||
-      isAwaitingCalorieCheck ||
       currentStep?.kind !== "rest" ||
       !isRestWaitingForReady
     ) {
@@ -361,7 +335,6 @@ export function useRoutineEngine({
   }, [
     completeCurrentStep,
     currentStep,
-    isAwaitingCalorieCheck,
     isComplete,
     isRestWaitingForReady,
     isRunning,
@@ -370,11 +343,7 @@ export function useRoutineEngine({
 
   const registerMovement = useCallback(
     (movementMode: MovementMode): boolean => {
-      if (
-        !isRunning ||
-        completeRef.current ||
-        awaitingCalorieCheckRef.current
-      ) {
+      if (!isRunning || completeRef.current) {
         return false;
       }
 
@@ -410,24 +379,6 @@ export function useRoutineEngine({
     return registerMovement("combinations");
   }, [registerMovement]);
 
-  /*
-   * Se conserva por compatibilidad con BattlePage y versiones
-   * anteriores. El flujo actual termina al completar la rutina
-   * base, así que esta función normalmente no se ejecuta.
-   */
-  const resolveCalorieGoal = useCallback(
-    () => {
-      /*
-       * Compatibilidad con versiones anteriores: aunque BattlePage
-       * intente resolver una meta, nunca se agregan ejercicios extra.
-       */
-      if (!completeRef.current) {
-        finishRoutine();
-      }
-    },
-    [finishRoutine],
-  );
-
   const resetRoutine = useCallback(() => {
     const initialSteps = buildBaseRoutineSteps(routine);
 
@@ -436,8 +387,6 @@ export function useRoutineEngine({
     elapsedSecondsRef.current = 0;
     currentCountRef.current = 0;
     completeRef.current = false;
-    awaitingCalorieCheckRef.current = false;
-    overloadRoundRef.current = 0;
     restWaitingRef.current = false;
     restReadyCountdownRef.current = null;
 
@@ -446,17 +395,15 @@ export function useRoutineEngine({
     setElapsedSeconds(0);
     setCurrentCount(0);
     setIsComplete(false);
-    setIsAwaitingCalorieCheck(false);
-    setOverloadRound(0);
     setIsRestWaitingForReady(false);
     setRestReadyCountdown(null);
   }, [routine]);
 
   const skipCurrentStep = useCallback(() => {
-    if (!isComplete && !isAwaitingCalorieCheck) {
+    if (!isComplete) {
       completeCurrentStep();
     }
-  }, [completeCurrentStep, isAwaitingCalorieCheck, isComplete]);
+  }, [completeCurrentStep, isComplete]);
 
   const currentExercise =
     currentStep?.kind === "exercise" ? currentStep.exercise : null;
@@ -513,10 +460,6 @@ export function useRoutineEngine({
       ? Math.max(currentTarget - elapsedSeconds, 0)
       : null;
 
-  const isOverload =
-    currentStep?.stage === "overload" ||
-    (isAwaitingCalorieCheck && overloadRound > 0);
-
   const mandatoryRoutineComplete =
     currentStepIndex >= baseSteps.length || isComplete;
 
@@ -529,14 +472,10 @@ export function useRoutineEngine({
     currentStepIndex,
     totalSteps: steps.length,
 
-    currentBlockName:
-      currentStep?.blockName ??
-      (isAwaitingCalorieCheck
-        ? "Evaluando objetivo calórico"
-        : ""),
+    currentBlockName: currentStep?.blockName ?? "",
 
-    currentRound: currentStep?.round ?? Math.max(overloadRound, 1),
-    totalRounds: currentStep?.totalRounds ?? Math.max(overloadRound, 1),
+    currentRound: currentStep?.round ?? 1,
+    totalRounds: currentStep?.totalRounds ?? 1,
 
     currentMode,
     currentValue,
@@ -551,15 +490,11 @@ export function useRoutineEngine({
 
     currentMet,
     isComplete,
-    isAwaitingCalorieCheck,
-    isOverload,
-    overloadRound,
     isRestWaitingForReady,
     restReadyCountdown,
 
     registerRepetition,
     registerCombination,
-    resolveCalorieGoal,
     skipCurrentStep,
     resetRoutine,
   };

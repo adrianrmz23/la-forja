@@ -1,7 +1,6 @@
 import {
   BarChart3,
   CalendarDays,
-  Cloud,
   Dumbbell,
   Flame,
   Play,
@@ -90,9 +89,6 @@ function HomePage() {
             {isProfileComplete ? "Editar perfil" : "Configurar perfil"}
           </Link>
 
-          <Link className="button button--secondary" to="/account">
-            <Cloud size={20} /> Cuenta y sincronización
-          </Link>
         </section>
 
         <footer className="home-footer"><span /><p>La Forja espera un nuevo guerrero</p><span /></footer>

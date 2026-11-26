@@ -3,7 +3,6 @@ import {
   Activity,
   ArrowLeft,
   CalendarCheck2,
-  Cloud,
   Dumbbell,
   Flame,
   Footprints,
@@ -18,7 +17,6 @@ import {
 } from "lucide-react";
 import { Link } from "react-router";
 import { getOperationDayPlan, OPERATION_START_DATE } from "../data/operationForjaPlan.ts";
-import { useCloudSync } from "../hooks/useCloudSync.ts";
 import { useFreeWorkoutStore } from "../stores/freeWorkoutStore.ts";
 import { useOperationForjaStore } from "../stores/operationForjaStore.ts";
 import { usePlayerStore } from "../stores/playerStore.ts";
@@ -159,7 +157,6 @@ export default function ProgressPage() {
   const missionHistory = usePlayerStore((state) => state.missionHistory);
   const currentStreak = usePlayerStore((state) => state.currentStreak);
   const totalWorkouts = usePlayerStore((state) => state.totalWorkouts);
-  const { status } = useCloudSync();
 
   const today = dateKey(now);
   const start30 = shiftDate(today, -29);
@@ -399,7 +396,6 @@ export default function ProgressPage() {
         <header className="progress-header">
           <Link to="/" aria-label="Volver"><ArrowLeft size={20} /></Link>
           <div><span>LA FORJA</span><strong>Mi progreso</strong></div>
-          <Link className="progress-cloud-link" to="/account"><Cloud size={17} /> {status === "synced" ? "Sincronizado" : status === "syncing" ? "Guardando" : "Nube"}</Link>
         </header>
 
         <section className="progress-hero">

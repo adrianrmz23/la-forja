@@ -12,7 +12,6 @@ const MovementLabPage = lazy(() => import("./pages/MovementLabPage"));
 const OperationForjaPage = lazy(() => import("./pages/OperationForjaPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const ProgressPage = lazy(() => import("./pages/ProgressPage"));
-const AccountPage = lazy(() => import("./pages/AccountPage"));
 const TrainingPage = lazy(() => import("./pages/TrainingPage"));
 
 function PageLoading() {
@@ -45,7 +44,6 @@ function App() {
             <Route path="/movement-lab" element={<MovementLabPage />} />
             <Route path="/operation-forja" element={<OperationForjaPage />} />
             <Route path="/progress" element={<ProgressPage />} />
-            <Route path="/account" element={<AccountPage />} />
             <Route path="/mission/:levelId" element={<MissionPage />} />
             <Route path="/battle/:levelId" element={<BattlePage />} />
           </Routes>

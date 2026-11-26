@@ -986,7 +986,7 @@ function TrainingPage() {
             <div>
               <span>
                 <History size={17} />
-                HISTORIAL SINCRONIZADO
+                HISTORIAL
               </span>
               <h2>Entrenamientos libres recientes</h2>
             </div>

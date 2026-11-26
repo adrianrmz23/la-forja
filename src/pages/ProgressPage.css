@@ -13,7 +13,6 @@
 .progress-header > div { display: grid; gap: 2px; }
 .progress-header > div span { color: #fb923c; font-size: .7rem; font-weight: 800; letter-spacing: .15em; }
 .progress-header > div strong { font-size: .94rem; }
-.progress-cloud-link { display: inline-flex; margin-left: auto; padding: 9px 12px; align-items: center; gap: 7px; border: 1px solid rgba(255,255,255,.08); border-radius: 999px; color: #cbd5e1; background: rgba(255,255,255,.035); text-decoration: none; font-size: .76rem; font-weight: 700; }
 
 .progress-hero { display: grid; margin: 58px 0 32px; grid-template-columns: 1fr auto; gap: 30px; align-items: end; }
 .progress-kicker { display: inline-flex; align-items: center; gap: 7px; color: #fb923c; font-size: .72rem; font-weight: 800; letter-spacing: .14em; }
@@ -88,8 +87,6 @@
   .progress-hero-stat { min-width: 0; grid-template-columns: auto auto auto; align-items: baseline; justify-content: center; gap: 10px; }
   .progress-hero-stat strong { font-size: 3.2rem; }
   .progress-metrics-grid { grid-template-columns: 1fr; }
-  .progress-cloud-link { padding: 9px; }
-  .progress-cloud-link { font-size: 0; }
   .weight-entry-form { align-items: stretch; flex-direction: column; }
 }
 

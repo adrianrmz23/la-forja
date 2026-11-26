@@ -76,6 +76,10 @@ function HomePage() {
             {isProfileComplete ? "Continuar aventura" : "Crear mi guerrero"}
           </Link>
 
+          <Link className="button button--secondary" to="/mancuernas">
+            <Dumbbell size={20} /> Rutina con mancuernas
+          </Link>
+
           <Link className="button button--secondary" to="/operation-forja">
             <CalendarDays size={20} /> Operación Forja 365
           </Link>

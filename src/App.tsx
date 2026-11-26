@@ -6,6 +6,7 @@ import HomePage from "./pages/HomePage";
 
 /* Cada página se descarga solo cuando se visita. */
 const BattlePage = lazy(() => import("./pages/BattlePage"));
+const DumbbellWorkoutPage = lazy(() => import("./pages/DumbbellWorkoutPage"));
 const MapPage = lazy(() => import("./pages/MapPage"));
 const MissionPage = lazy(() => import("./pages/MissionPage"));
 const MovementLabPage = lazy(() => import("./pages/MovementLabPage"));
@@ -41,6 +42,7 @@ function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/map" element={<MapPage />} />
             <Route path="/training" element={<TrainingPage />} />
+            <Route path="/mancuernas" element={<DumbbellWorkoutPage />} />
             <Route path="/movement-lab" element={<MovementLabPage />} />
             <Route path="/operation-forja" element={<OperationForjaPage />} />
             <Route path="/progress" element={<ProgressPage />} />

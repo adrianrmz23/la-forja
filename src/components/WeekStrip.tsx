@@ -1,6 +1,7 @@
 import { Check, Flame } from "lucide-react";
 import { useMemo } from "react";
 import { useFreeWorkoutStore } from "../stores/freeWorkoutStore";
+import { useDumbbellWorkoutStore } from "../stores/dumbbellWorkoutStore";
 import { usePlayerStore } from "../stores/playerStore";
 import { getWeekActivity } from "../utils/weekActivity";
 import "./WeekStrip.css";
@@ -9,14 +10,16 @@ import "./WeekStrip.css";
 export function WeekStrip() {
   const missionHistory = usePlayerStore((state) => state.missionHistory);
   const freeHistory = useFreeWorkoutStore((state) => state.history);
+  const dumbbellHistory = useDumbbellWorkoutStore((state) => state.history);
 
   const days = useMemo(
     () =>
       getWeekActivity([
         ...missionHistory.map((entry) => entry.completedAt),
         ...freeHistory.map((entry) => entry.completedAt),
+        ...dumbbellHistory.map((entry) => entry.completedAt),
       ]),
-    [missionHistory, freeHistory],
+    [missionHistory, freeHistory, dumbbellHistory],
   );
 
   const trainedDays = days.filter((day) => day.trained).length;
